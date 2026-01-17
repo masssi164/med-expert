@@ -1,0 +1,169 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Create Medication Profile",
+        "description": "Create a new medication management profile.",
+        "data": {
+          "profile_name": "Profile Name"
+        }
+      }
+    },
+    "error": {
+      "name_exists": "A profile with this name already exists.",
+      "invalid_name": "Please enter a valid profile name.",
+      "unknown": "Unknown error occurred."
+    },
+    "abort": {
+      "already_configured": "This profile is already configured."
+    }
+  },
+  "services": {
+    "take": {
+      "name": "Take Medication",
+      "description": "Mark a scheduled medication as taken.",
+      "fields": {
+        "medication_id": {
+          "name": "Medication ID",
+          "description": "The ID of the medication to mark as taken."
+        },
+        "taken_at": {
+          "name": "Taken At",
+          "description": "Override the time the medication was taken (optional)."
+        },
+        "dose_override": {
+          "name": "Dose Override",
+          "description": "Override the scheduled dose (optional)."
+        }
+      }
+    },
+    "prn_take": {
+      "name": "PRN Take",
+      "description": "Log an as-needed (PRN) medication intake outside of schedule.",
+      "fields": {
+        "medication_id": {
+          "name": "Medication ID",
+          "description": "The ID of the medication."
+        },
+        "dose_numerator": {
+          "name": "Dose Numerator",
+          "description": "The numerator of the dose (e.g., 1 for 1/2)."
+        },
+        "dose_denominator": {
+          "name": "Dose Denominator",
+          "description": "The denominator of the dose (e.g., 2 for 1/2)."
+        },
+        "dose_unit": {
+          "name": "Dose Unit",
+          "description": "The unit of the dose (e.g., tablet, ml)."
+        },
+        "note": {
+          "name": "Note",
+          "description": "Optional note for this intake."
+        }
+      }
+    },
+    "snooze": {
+      "name": "Snooze Reminder",
+      "description": "Snooze a medication reminder.",
+      "fields": {
+        "medication_id": {
+          "name": "Medication ID",
+          "description": "The ID of the medication to snooze."
+        },
+        "minutes": {
+          "name": "Minutes",
+          "description": "Number of minutes to snooze."
+        }
+      }
+    },
+    "skip": {
+      "name": "Skip Dose",
+      "description": "Skip the current scheduled dose.",
+      "fields": {
+        "medication_id": {
+          "name": "Medication ID",
+          "description": "The ID of the medication to skip."
+        },
+        "reason": {
+          "name": "Reason",
+          "description": "Optional reason for skipping."
+        }
+      }
+    },
+    "add_medication": {
+      "name": "Add Medication",
+      "description": "Add a new medication to the profile.",
+      "fields": {
+        "display_name": {
+          "name": "Display Name",
+          "description": "Name of the medication."
+        },
+        "schedule_kind": {
+          "name": "Schedule Kind",
+          "description": "Type of schedule (times_per_day, interval, weekly, as_needed)."
+        },
+        "times": {
+          "name": "Times",
+          "description": "List of times for times_per_day schedule (HH:MM format)."
+        },
+        "slot_doses": {
+          "name": "Slot Doses",
+          "description": "Doses per slot as JSON object."
+        },
+        "default_dose": {
+          "name": "Default Dose",
+          "description": "Default dose as JSON object with numerator, denominator, unit."
+        }
+      }
+    },
+    "update_medication": {
+      "name": "Update Medication",
+      "description": "Update an existing medication.",
+      "fields": {
+        "medication_id": {
+          "name": "Medication ID",
+          "description": "The ID of the medication to update."
+        },
+        "updates": {
+          "name": "Updates",
+          "description": "JSON object with fields to update."
+        }
+      }
+    },
+    "remove_medication": {
+      "name": "Remove Medication",
+      "description": "Remove a medication from the profile.",
+      "fields": {
+        "medication_id": {
+          "name": "Medication ID",
+          "description": "The ID of the medication to remove."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "next_due": {
+        "name": "{medication_name} Next Due"
+      },
+      "status": {
+        "name": "{medication_name} Status"
+      },
+      "next_dose_amount": {
+        "name": "{medication_name} Next Dose"
+      }
+    },
+    "button": {
+      "taken": {
+        "name": "{medication_name} Taken"
+      },
+      "snooze": {
+        "name": "{medication_name} Snooze"
+      },
+      "prn_take": {
+        "name": "{medication_name} PRN Take"
+      }
+    }
+  }
+}
