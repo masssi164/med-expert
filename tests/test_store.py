@@ -302,6 +302,77 @@ class TestMigrations:
         assert log["dose"]["numerator"] == 1
         assert log["dose"]["denominator"] == 2
 
+    def test_migrate_v1_to_v2_adds_new_fields(self):
+        """Test migration from v1 to v2 adds form, inventory, and notification fields."""
+        from custom_components.med_expert.store import ProfileStore
+
+        hass = MagicMock()
+        store = ProfileStore(hass)
+
+        # V1 data without new fields
+        v1_data = {
+            "schema_version": 1,
+            "profiles": {
+                "profile-1": {
+                    "profile_id": "profile-1",
+                    "name": "Test",
+                    "timezone": "UTC",
+                    "medications": {
+                        "med-1": {
+                            "medication_id": "med-1",
+                            "display_name": "Aspirin",
+                            "ref": {
+                                "provider": "manual",
+                                "external_id": "med-1",
+                                "display_name": "Aspirin",
+                            },
+                            "schedule": {
+                                "kind": "times_per_day",
+                                "times": ["08:00"],
+                                "default_dose": {"numerator": 1, "denominator": 1, "unit": "tablet"},
+                            },
+                            "policy": {},
+                            "state": {},
+                        },
+                    },
+                    "logs": [
+                        {
+                            "action": "taken",
+                            "taken_at": "2025-01-15T08:00:00+00:00",
+                            "scheduled_for": "2025-01-15T08:00:00+00:00",
+                            "dose": {"numerator": 1, "denominator": 1, "unit": "tablet"},
+                        },
+                    ],
+                },
+            },
+        }
+
+        migrated = store._migrate_v1_to_v2(v1_data)
+
+        profile = migrated["profiles"]["profile-1"]
+        med = profile["medications"]["med-1"]
+        log = profile["logs"][0]
+
+        # Check medication new fields
+        assert med["form"] == "tablet"
+        assert med["default_unit"] is None
+        assert med["inventory"] is None
+        assert med["injection_tracking"] is None
+        assert med["inhaler_tracking"] is None
+        assert med["notes"] is None
+        assert med["interaction_warnings"] == []
+        assert med["is_active"] is True
+
+        # Check profile new fields
+        assert profile["notification_settings"] is None
+        assert profile["adherence_stats"] is None
+        assert profile["owner_name"] is None
+        assert profile["avatar"] is None
+
+        # Check log new fields
+        assert log["medication_id"] is None
+        assert log["injection_site"] is None
+
     def test_current_version_no_migration(self):
         """Test that current version data is not modified."""
         from custom_components.med_expert.store import ProfileStore, CURRENT_SCHEMA_VERSION

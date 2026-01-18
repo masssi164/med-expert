@@ -37,4 +37,16 @@ SCHEDULE_AS_NEEDED: Final = "as_needed"
 
 # Store
 STORE_KEY: Final = "med_expert_data"
-STORE_VERSION: Final = 1
+STORE_VERSION: Final = 2  # Bumped for inventory/adherence/notification settings
+
+# Notification actions
+NOTIFICATION_ACTION_TAKEN: Final = "MED_EXPERT_TAKEN"
+NOTIFICATION_ACTION_SNOOZE: Final = "MED_EXPERT_SNOOZE"
+NOTIFICATION_ACTION_SKIP: Final = "MED_EXPERT_SKIP"
+
+# Event types
+EVENT_MOBILE_APP_NOTIFICATION_ACTION: Final = "mobile_app_notification_action"
+
+# Notification categories
+NOTIFICATION_CATEGORY_MEDICATION: Final = "med_expert_medication"
+NOTIFICATION_TAG_PREFIX: Final = "med_expert_"

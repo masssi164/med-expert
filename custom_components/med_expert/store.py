@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 # Current schema version
-CURRENT_SCHEMA_VERSION = 1
+CURRENT_SCHEMA_VERSION = 2
 
 
 class ProfileStore:
@@ -157,8 +157,91 @@ class ProfileStore:
         # Apply migrations in order
         if schema_version < 1:
             data = self._migrate_v0_to_v1(data)
+        if schema_version < 2:
+            data = self._migrate_v1_to_v2(data)
 
         data["schema_version"] = CURRENT_SCHEMA_VERSION
+        return data
+
+    def _migrate_v1_to_v2(self, data: dict[str, Any]) -> dict[str, Any]:
+        """
+        Migrate from v1 to v2.
+
+        Changes:
+        - Add form field to medications (default: "tablet")
+        - Add inventory field to medications (default: None)
+        - Add notification_settings to profiles (default: empty)
+        - Add adherence_stats to profiles (default: empty)
+        - Add medication_id to log records
+        - Add owner_name to profiles
+
+        """
+        profiles = data.get("profiles", {})
+
+        for profile_data in profiles.values():
+            # Add notification_settings if missing
+            if "notification_settings" not in profile_data:
+                profile_data["notification_settings"] = None
+
+            # Add adherence_stats if missing
+            if "adherence_stats" not in profile_data:
+                profile_data["adherence_stats"] = None
+
+            # Add owner_name if missing
+            if "owner_name" not in profile_data:
+                profile_data["owner_name"] = None
+
+            # Add avatar if missing
+            if "avatar" not in profile_data:
+                profile_data["avatar"] = None
+
+            medications = profile_data.get("medications", {})
+
+            for med_id, med_data in medications.items():
+                # Add form if missing
+                if "form" not in med_data:
+                    med_data["form"] = "tablet"
+
+                # Add default_unit if missing
+                if "default_unit" not in med_data:
+                    med_data["default_unit"] = None
+
+                # Add inventory if missing
+                if "inventory" not in med_data:
+                    med_data["inventory"] = None
+
+                # Add tracking fields if missing
+                if "injection_tracking" not in med_data:
+                    med_data["injection_tracking"] = None
+
+                if "inhaler_tracking" not in med_data:
+                    med_data["inhaler_tracking"] = None
+
+                # Add notes if missing
+                if "notes" not in med_data:
+                    med_data["notes"] = None
+
+                # Add interaction_warnings if missing
+                if "interaction_warnings" not in med_data:
+                    med_data["interaction_warnings"] = []
+
+                # Add is_active if missing
+                if "is_active" not in med_data:
+                    med_data["is_active"] = True
+
+            profile_data["medications"] = medications
+
+            # Migrate logs - add medication_id
+            logs = profile_data.get("logs", [])
+            for log in logs:
+                if "medication_id" not in log:
+                    log["medication_id"] = None
+                if "injection_site" not in log:
+                    log["injection_site"] = None
+
+            profile_data["logs"] = logs
+
+        data["profiles"] = profiles
         return data
 
     def _migrate_v0_to_v1(self, data: dict[str, Any]) -> dict[str, Any]:

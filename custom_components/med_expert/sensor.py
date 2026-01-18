@@ -8,13 +8,14 @@ from typing import TYPE_CHECKING
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
+    SensorStateClass,
 )
 from homeassistant.core import callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
 from .const import DOMAIN
-from .domain.models import Medication, MedicationStatus
+from .domain.models import Medication, MedicationStatus, DosageFormInfo
 from .runtime.manager import SIGNAL_MEDICATION_UPDATED, SIGNAL_MEDICATIONS_CHANGED
 
 if TYPE_CHECKING:
@@ -38,6 +39,9 @@ async def async_setup_entry(
     entities: list[SensorEntity] = []
     for medication in manager.get_all_medications().values():
         entities.extend(_create_medication_sensors(entry, medication))
+
+    # Add profile-level sensors
+    entities.append(ProfileAdherenceSensor(entry))
 
     async_add_entities(entities)
 
@@ -63,11 +67,21 @@ def _create_medication_sensors(
     medication: Medication,
 ) -> list[SensorEntity]:
     """Create sensor entities for a medication."""
-    return [
+    sensors: list[SensorEntity] = [
         MedicationNextDueSensor(entry, medication),
         MedicationStatusSensor(entry, medication),
         MedicationNextDoseSensor(entry, medication),
     ]
+
+    # Add inventory sensor if medication has inventory
+    if medication.inventory:
+        sensors.append(MedicationInventorySensor(entry, medication))
+
+    # Add inhaler puffs sensor if applicable
+    if medication.inhaler_tracking:
+        sensors.append(MedicationInhalerPuffsSensor(entry, medication))
+
+    return sensors
 
 
 class MedicationBaseSensor(SensorEntity):
@@ -243,3 +257,204 @@ class MedicationNextDoseSensor(MedicationBaseSensor):
             return medication.schedule.default_dose.format()
 
         return None
+
+
+class MedicationInventorySensor(MedicationBaseSensor):
+    """Sensor for medication inventory level."""
+
+    _attr_translation_key = "inventory"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(
+        self,
+        entry: MedExpertConfigEntry,
+        medication: Medication,
+    ) -> None:
+        """Initialize the sensor."""
+        super().__init__(entry, medication, "inventory")
+        self._attr_name = "Inventory"
+
+    @property
+    def native_value(self) -> int | None:
+        """Return the current inventory quantity."""
+        medication = self._get_medication()
+        if medication is None or medication.inventory is None:
+            return None
+        return medication.inventory.current_quantity
+
+    @property
+    def native_unit_of_measurement(self) -> str | None:
+        """Return the unit of measurement."""
+        medication = self._get_medication()
+        if medication is None or medication.inventory is None:
+            return None
+        return medication.inventory.unit or "units"
+
+    @property
+    def icon(self) -> str:
+        """Return the icon based on form and level."""
+        medication = self._get_medication()
+        if medication is None:
+            return "mdi:package-variant"
+
+        # Use form-specific icon if available
+        if medication.form:
+            form_info = DosageFormInfo.get_info(medication.form)
+            if form_info:
+                return form_info.icon
+
+        return "mdi:package-variant"
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Return extra state attributes."""
+        medication = self._get_medication()
+        if medication is None or medication.inventory is None:
+            return {}
+
+        inv = medication.inventory
+        attrs = {
+            "package_size": inv.package_size,
+            "refill_threshold": inv.refill_threshold,
+            "is_low": inv.is_low(),
+            "auto_decrement": inv.auto_decrement,
+        }
+
+        if inv.expiry_date:
+            attrs["expiry_date"] = inv.expiry_date.isoformat()
+            attrs["is_expired"] = inv.is_expired()
+
+        if inv.pharmacy_name:
+            attrs["pharmacy_name"] = inv.pharmacy_name
+        if inv.pharmacy_phone:
+            attrs["pharmacy_phone"] = inv.pharmacy_phone
+        if inv.notes:
+            attrs["notes"] = inv.notes
+
+        return attrs
+
+
+class MedicationInhalerPuffsSensor(MedicationBaseSensor):
+    """Sensor for remaining inhaler puffs."""
+
+    _attr_translation_key = "inhaler_puffs"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(
+        self,
+        entry: MedExpertConfigEntry,
+        medication: Medication,
+    ) -> None:
+        """Initialize the sensor."""
+        super().__init__(entry, medication, "inhaler_puffs")
+        self._attr_name = "Puffs Remaining"
+        self._attr_icon = "mdi:spray"
+        self._attr_native_unit_of_measurement = "puffs"
+
+    @property
+    def native_value(self) -> int | None:
+        """Return the remaining puffs."""
+        medication = self._get_medication()
+        if medication is None or medication.inhaler_tracking is None:
+            return None
+        return medication.inhaler_tracking.remaining_puffs
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Return extra state attributes."""
+        medication = self._get_medication()
+        if medication is None or medication.inhaler_tracking is None:
+            return {}
+
+        tracking = medication.inhaler_tracking
+        return {
+            "total_puffs": tracking.total_puffs,
+            "used_puffs": tracking.used_puffs,
+            "is_low": tracking.is_low(),
+        }
+
+
+class ProfileAdherenceSensor(SensorEntity):
+    """Sensor for overall medication adherence rate."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "adherence"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = "%"
+    _attr_icon = "mdi:chart-line"
+
+    def __init__(
+        self,
+        entry: MedExpertConfigEntry,
+    ) -> None:
+        """Initialize the sensor."""
+        self._entry = entry
+        manager = entry.runtime_data.manager
+
+        self._attr_unique_id = f"{entry.entry_id}_adherence"
+        self._attr_name = "Adherence Rate"
+
+        # Device info - profile-level device
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name=f"{manager.profile.name} Medications",
+            manufacturer="Med Expert",
+            model="Medication Profile",
+        )
+
+    @property
+    def _manager(self):
+        """Get the profile manager."""
+        return self._entry.runtime_data.manager
+
+    @property
+    def native_value(self) -> float | None:
+        """Return the 30-day adherence rate."""
+        profile = self._manager.profile
+        if profile.adherence_stats is None:
+            return None
+        return round(profile.adherence_stats.monthly_rate, 1)
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Return extra state attributes."""
+        profile = self._manager.profile
+        if profile.adherence_stats is None:
+            return {}
+
+        stats = profile.adherence_stats
+        attrs = {
+            "daily_rate": round(stats.daily_rate, 1),
+            "weekly_rate": round(stats.weekly_rate, 1),
+            "monthly_rate": round(stats.monthly_rate, 1),
+            "current_streak": stats.current_streak,
+            "longest_streak": stats.longest_streak,
+            "total_taken": stats.total_taken,
+            "total_missed": stats.total_missed,
+            "total_skipped": stats.total_skipped,
+        }
+
+        if stats.most_missed_slot:
+            attrs["most_missed_slot"] = stats.most_missed_slot
+        if stats.most_missed_medication:
+            attrs["most_missed_medication"] = stats.most_missed_medication
+
+        return attrs
+
+    async def async_added_to_hass(self) -> None:
+        """When entity is added to hass."""
+        await super().async_added_to_hass()
+
+        # Listen for medication changes (which trigger adherence recalculation)
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass,
+                SIGNAL_MEDICATIONS_CHANGED.format(entry_id=self._entry.entry_id),
+                self._handle_update,
+            )
+        )
+
+    @callback
+    def _handle_update(self) -> None:
+        """Handle profile update."""
+        self.async_write_ha_state()

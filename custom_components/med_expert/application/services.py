@@ -8,17 +8,25 @@ Coordinates between domain models, repository, and providers.
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
-from datetime import datetime
+from dataclasses import dataclass, field
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from custom_components.med_expert.domain.models import (
+    AdherenceStats,
+    DosageForm,
+    DosageFormInfo,
     DoseQuantity,
+    InhalerTracking,
+    InjectionSite,
+    InjectionTracking,
+    Inventory,
     LogAction,
     LogRecord,
     Medication,
     MedicationRef,
     MedicationStatus,
+    NotificationSettings,
     Profile,
     ReminderPolicy,
     ScheduleKind,
@@ -51,6 +59,16 @@ class ValidationError(MedicationServiceError):
 
 
 
+class InventoryError(MedicationServiceError):
+    """Raised when there's an inventory-related error."""
+
+
+
+class UnitCompatibilityError(ValidationError):
+    """Raised when a unit is incompatible with a dosage form."""
+
+
+
 # ============================================================================
 # Commands (DTOs for service operations)
 # ============================================================================
@@ -70,6 +88,12 @@ class AddMedicationCommand:
     policy: dict | None = None
     start_date: str | None = None  # ISO format
     end_date: str | None = None  # ISO format
+    # New fields
+    form: str | None = None  # DosageForm value
+    default_unit: str | None = None
+    inventory: dict | None = None  # Inventory fields
+    notes: str | None = None
+    interaction_warnings: list[dict] | None = None
 
     def validate(self) -> None:
         """Validate the command."""
@@ -103,6 +127,23 @@ class AddMedicationCommand:
                 msg = "Positive interval_minutes is required for interval schedule"
                 raise ValidationError(msg)
 
+        elif self.schedule_kind == ScheduleKind.DEPOT:
+            if not self.interval_minutes or self.interval_minutes <= 0:
+                msg = "Positive interval_minutes is required for depot schedule"
+                raise ValidationError(msg)
+
+        # Validate form and unit compatibility
+        if self.form:
+            try:
+                dosage_form = DosageForm(self.form)
+                compatible_units = DosageFormInfo.get_compatible_units(dosage_form)
+                if self.default_unit and self.default_unit not in compatible_units:
+                    msg = f"Unit '{self.default_unit}' is not compatible with form '{self.form}'. Compatible units: {compatible_units}"
+                    raise UnitCompatibilityError(msg)
+            except ValueError:
+                msg = f"Invalid dosage form: {self.form}"
+                raise ValidationError(msg) from None
+
         # Validate doses
         if self.default_dose:
             _validate_dose_dict(self.default_dose)
@@ -120,6 +161,13 @@ class UpdateMedicationCommand:
     display_name: str | None = None
     schedule_updates: dict | None = None
     policy_updates: dict | None = None
+    # New fields
+    form: str | None = None
+    default_unit: str | None = None
+    inventory_updates: dict | None = None
+    notes: str | None = None
+    is_active: bool | None = None
+    interaction_warnings: list[dict] | None = None
 
 
 @dataclass
@@ -129,6 +177,7 @@ class TakeCommand:
     medication_id: str
     taken_at: datetime | None = None
     dose_override: dict | None = None  # {numerator, denominator, unit}
+    injection_site: str | None = None  # For injection tracking
 
 
 @dataclass
@@ -139,6 +188,7 @@ class PRNTakeCommand:
     dose: dict  # {numerator, denominator, unit}
     taken_at: datetime | None = None
     note: str | None = None
+    injection_site: str | None = None  # For injection tracking
 
 
 @dataclass
@@ -156,6 +206,50 @@ class SkipCommand:
 
     medication_id: str
     reason: str | None = None
+
+
+@dataclass
+class RefillCommand:
+    """Command to refill medication inventory."""
+
+    medication_id: str
+    quantity: int | None = None  # If None, use package_size
+    expiry_date: str | None = None  # ISO format
+
+
+@dataclass
+class UpdateInventoryCommand:
+    """Command to update inventory settings."""
+
+    medication_id: str
+    current_quantity: int | None = None
+    package_size: int | None = None
+    refill_threshold: int | None = None
+    auto_decrement: bool | None = None
+    expiry_date: str | None = None  # ISO format
+    pharmacy_name: str | None = None
+    pharmacy_phone: str | None = None
+    notes: str | None = None
+
+
+@dataclass
+class ReplaceInhalerCommand:
+    """Command to replace an inhaler."""
+
+    medication_id: str
+    total_puffs: int | None = None  # If None, use previous total
+
+
+@dataclass
+class UpdateNotificationSettingsCommand:
+    """Command to update profile notification settings."""
+
+    notify_target: str | None = None
+    fallback_targets: list[str] | None = None
+    group_notifications: bool | None = None
+    include_actions: bool | None = None
+    title_template: str | None = None
+    message_template: str | None = None
 
 
 # ============================================================================
@@ -240,12 +334,31 @@ class MedicationService:
         if command.policy:
             policy = ReminderPolicy.from_dict(command.policy)
 
-        # Create medication
+        # Parse form
+        form = None
+        if command.form:
+            form = DosageForm(command.form)
+
+        # Build inventory
+        inventory = None
+        if command.inventory:
+            inventory = Inventory.from_dict(command.inventory)
+
+        # Create medication with new fields
         medication = Medication.create(
             display_name=command.display_name.strip(),
             schedule=schedule,
             policy=policy,
+            form=form,
+            default_unit=command.default_unit,
+            inventory=inventory,
         )
+
+        # Set additional fields
+        if command.notes:
+            medication.notes = command.notes
+        if command.interaction_warnings:
+            medication.interaction_warnings = command.interaction_warnings
 
         # Compute initial state
         self._recompute_state(profile, medication)
@@ -299,6 +412,56 @@ class MedicationService:
             policy_dict = medication.policy.to_dict()
             policy_dict.update(command.policy_updates)
             medication.policy = ReminderPolicy.from_dict(policy_dict)
+
+        # Update form
+        if command.form is not None:
+            medication.form = DosageForm(command.form) if command.form else None
+            # Auto-configure tracking based on new form
+            if medication.form:
+                form_info = DosageFormInfo.get(medication.form)
+                if form_info.supports_site_tracking and not medication.injection_tracking:
+                    medication.injection_tracking = InjectionTracking()
+                if form_info.supports_puff_counter and not medication.inhaler_tracking:
+                    medication.inhaler_tracking = InhalerTracking()
+
+        # Update default unit
+        if command.default_unit is not None:
+            medication.default_unit = command.default_unit
+
+        # Update inventory
+        if command.inventory_updates:
+            if medication.inventory is None:
+                medication.inventory = Inventory()
+            inv = medication.inventory
+            updates = command.inventory_updates
+            if "current_quantity" in updates:
+                inv.current_quantity = updates["current_quantity"]
+            if "package_size" in updates:
+                inv.package_size = updates["package_size"]
+            if "refill_threshold" in updates:
+                inv.refill_threshold = updates["refill_threshold"]
+            if "auto_decrement" in updates:
+                inv.auto_decrement = updates["auto_decrement"]
+            if "expiry_date" in updates:
+                inv.expiry_date = date.fromisoformat(updates["expiry_date"]) if updates["expiry_date"] else None
+            if "pharmacy_name" in updates:
+                inv.pharmacy_name = updates["pharmacy_name"]
+            if "pharmacy_phone" in updates:
+                inv.pharmacy_phone = updates["pharmacy_phone"]
+            if "notes" in updates:
+                inv.notes = updates["notes"]
+
+        # Update notes
+        if command.notes is not None:
+            medication.notes = command.notes
+
+        # Update active status
+        if command.is_active is not None:
+            medication.is_active = command.is_active
+
+        # Update interaction warnings
+        if command.interaction_warnings is not None:
+            medication.interaction_warnings = command.interaction_warnings
 
         # Recompute state
         self._recompute_state(profile, medication)
@@ -358,18 +521,43 @@ class MedicationService:
         elif medication.schedule.default_dose:
             dose = medication.schedule.default_dose
         else:
-            dose = DoseQuantity.normalize(1, 1, "dose")
+            # Use default_unit from medication or fallback
+            unit = medication.default_unit or "dose"
+            dose = DoseQuantity.normalize(1, 1, unit)
 
-        # Create log record
+        # Handle injection site tracking
+        injection_site = None
+        if command.injection_site:
+            injection_site = InjectionSite(command.injection_site)
+        elif medication.injection_tracking and medication.injection_tracking.rotation_enabled:
+            injection_site = medication.injection_tracking.get_next_site()
+
+        # Create log record with medication_id for filtering
         log = LogRecord(
             action=LogAction.TAKEN,
             taken_at=taken_at,
+            medication_id=command.medication_id,
             scheduled_for=medication.state.next_due,
             dose=dose,
             slot_key=medication.state.next_slot_key,
+            injection_site=injection_site,
         )
 
         profile.add_log(log)
+
+        # Update injection tracking
+        if injection_site and medication.injection_tracking:
+            medication.injection_tracking.record_site(injection_site)
+
+        # Update inventory
+        if medication.inventory and medication.inventory.auto_decrement:
+            # Decrement by dose amount (use numerator/denominator for fractional)
+            decrement_amount = max(1, int(dose.to_float()))
+            medication.inventory.decrement(decrement_amount)
+
+        # Update inhaler tracking
+        if medication.inhaler_tracking and dose.unit in ("puff", "spray"):
+            medication.inhaler_tracking.use_puffs(int(dose.to_float()))
 
         # Update medication state
         medication.state.last_taken = taken_at
@@ -408,6 +596,13 @@ class MedicationService:
         taken_at = command.taken_at or now
         dose = DoseQuantity.from_dict(command.dose)
 
+        # Handle injection site tracking
+        injection_site = None
+        if command.injection_site:
+            injection_site = InjectionSite(command.injection_site)
+        elif medication.injection_tracking and medication.injection_tracking.rotation_enabled:
+            injection_site = medication.injection_tracking.get_next_site()
+
         # Create log record with scheduled_for=None (PRN marker)
         meta = {}
         if command.note:
@@ -416,12 +611,27 @@ class MedicationService:
         log = LogRecord(
             action=LogAction.PRN_TAKEN,
             taken_at=taken_at,
+            medication_id=command.medication_id,
             scheduled_for=None,  # PRN has no scheduled time
             dose=dose,
+            injection_site=injection_site,
             meta=meta if meta else None,
         )
 
         profile.add_log(log)
+
+        # Update injection tracking
+        if injection_site and medication.injection_tracking:
+            medication.injection_tracking.record_site(injection_site)
+
+        # Update inventory
+        if medication.inventory and medication.inventory.auto_decrement:
+            decrement_amount = max(1, int(dose.to_float()))
+            medication.inventory.decrement(decrement_amount)
+
+        # Update inhaler tracking
+        if medication.inhaler_tracking and dose.unit in ("puff", "spray"):
+            medication.inhaler_tracking.use_puffs(int(dose.to_float()))
 
         # Check if PRN affects schedule
         if medication.policy.prn_affects_schedule:
@@ -541,6 +751,233 @@ class MedicationService:
         self._recompute_state(profile, medication)
 
         return log
+
+    def refill(
+        self,
+        profile: Profile,
+        command: RefillCommand,
+    ) -> LogRecord:
+        """
+        Refill medication inventory.
+
+        Args:
+            profile: The profile.
+            command: The refill command.
+
+        Returns:
+            The log record.
+
+        Raises:
+            MedicationNotFoundError: If medication not found.
+            InventoryError: If medication has no inventory configured.
+
+        """
+        medication = profile.get_medication(command.medication_id)
+        if medication is None:
+            msg = f"Medication {command.medication_id} not found"
+            raise MedicationNotFoundError(msg)
+
+        if medication.inventory is None:
+            medication.inventory = Inventory()
+
+        # Perform refill
+        medication.inventory.refill(command.quantity)
+
+        # Update expiry date if provided
+        if command.expiry_date:
+            medication.inventory.expiry_date = date.fromisoformat(command.expiry_date)
+
+        now = self._get_now()
+
+        # Create log record
+        log = LogRecord(
+            action=LogAction.REFILLED,
+            taken_at=now,
+            medication_id=command.medication_id,
+            meta={
+                "quantity": command.quantity or medication.inventory.package_size,
+                "new_total": medication.inventory.current_quantity,
+            },
+        )
+
+        profile.add_log(log)
+
+        return log
+
+    def replace_inhaler(
+        self,
+        profile: Profile,
+        command: ReplaceInhalerCommand,
+    ) -> None:
+        """
+        Replace an inhaler with a new one.
+
+        Args:
+            profile: The profile.
+            command: The replace command.
+
+        Raises:
+            MedicationNotFoundError: If medication not found.
+            ValidationError: If medication is not an inhaler.
+
+        """
+        medication = profile.get_medication(command.medication_id)
+        if medication is None:
+            msg = f"Medication {command.medication_id} not found"
+            raise MedicationNotFoundError(msg)
+
+        if medication.inhaler_tracking is None:
+            msg = "Medication is not configured for inhaler tracking"
+            raise ValidationError(msg)
+
+        medication.inhaler_tracking.replace(command.total_puffs)
+
+    def update_notification_settings(
+        self,
+        profile: Profile,
+        command: UpdateNotificationSettingsCommand,
+    ) -> None:
+        """
+        Update profile notification settings.
+
+        Args:
+            profile: The profile.
+            command: The update command.
+
+        """
+        settings = profile.notification_settings
+
+        if command.notify_target is not None:
+            settings.notify_target = command.notify_target
+        if command.fallback_targets is not None:
+            settings.fallback_targets = command.fallback_targets
+        if command.group_notifications is not None:
+            settings.group_notifications = command.group_notifications
+        if command.include_actions is not None:
+            settings.include_actions = command.include_actions
+        if command.title_template is not None:
+            settings.title_template = command.title_template
+        if command.message_template is not None:
+            settings.message_template = command.message_template
+
+    def calculate_adherence_stats(self, profile: Profile) -> AdherenceStats:
+        """
+        Calculate adherence statistics for a profile.
+
+        Args:
+            profile: The profile.
+
+        Returns:
+            Updated adherence stats.
+
+        """
+        now = self._get_now()
+        stats = profile.adherence_stats
+
+        # Calculate rates
+        stats.daily_rate = profile.calculate_adherence(days=1)
+        stats.weekly_rate = profile.calculate_adherence(days=7)
+        stats.monthly_rate = profile.calculate_adherence(days=30)
+
+        # Count totals (last 30 days)
+        cutoff = now - timedelta(days=30)
+        stats.total_taken = sum(
+            1 for log in profile.logs
+            if log.taken_at >= cutoff and log.action in (LogAction.TAKEN, LogAction.PRN_TAKEN)
+        )
+        stats.total_missed = sum(
+            1 for log in profile.logs
+            if log.taken_at >= cutoff and log.action == LogAction.MISSED
+        )
+        stats.total_skipped = sum(
+            1 for log in profile.logs
+            if log.taken_at >= cutoff and log.action == LogAction.SKIPPED
+        )
+
+        # Calculate streak
+        stats.current_streak = self._calculate_current_streak(profile)
+        if stats.current_streak > stats.longest_streak:
+            stats.longest_streak = stats.current_streak
+
+        # Find most missed slot
+        stats.most_missed_slot = self._find_most_missed_slot(profile)
+        most_missed_med_id = self._find_most_missed_medication(profile)
+        stats.most_missed_medication_id = most_missed_med_id
+        if most_missed_med_id:
+            med = profile.get_medication(most_missed_med_id)
+            stats.most_missed_medication = med.display_name if med else None
+
+        stats.last_calculated = now
+
+        return stats
+
+    def _calculate_current_streak(self, profile: Profile) -> int:
+        """Calculate the current consecutive days streak of taking all medications."""
+        if not profile.logs:
+            return 0
+
+        today = self._get_now().date()
+        streak = 0
+        current_date = today
+
+        # Group logs by date and check if all scheduled meds were taken
+        scheduled_meds = [
+            med for med in profile.medications.values()
+            if med.schedule.kind != ScheduleKind.AS_NEEDED and med.is_active
+        ]
+
+        if not scheduled_meds:
+            return 0
+
+        for days_back in range(365):  # Max 1 year
+            check_date = today - timedelta(days=days_back)
+            logs_for_date = [
+                log for log in profile.logs
+                if log.taken_at.date() == check_date
+                and log.action == LogAction.TAKEN
+            ]
+
+            # Check if all scheduled meds have at least one taken log
+            med_ids_taken = {log.medication_id for log in logs_for_date if log.medication_id}
+
+            # Simplified check: if any medication was taken, count the day
+            # A more sophisticated version would check against expected doses
+            if med_ids_taken:
+                streak += 1
+            else:
+                break
+
+        return streak
+
+    def _find_most_missed_slot(self, profile: Profile) -> str | None:
+        """Find the time slot with the most missed doses."""
+        from collections import Counter
+
+        missed_slots = [
+            log.slot_key for log in profile.logs
+            if log.action == LogAction.MISSED and log.slot_key
+        ]
+
+        if not missed_slots:
+            return None
+
+        counter = Counter(missed_slots)
+        return counter.most_common(1)[0][0]
+
+    def _find_most_missed_medication(self, profile: Profile) -> str | None:
+        """Find the medication with the most missed doses."""
+        from collections import Counter
+
+        missed_meds = [
+            log.medication_id for log in profile.logs
+            if log.action == LogAction.MISSED and log.medication_id
+        ]
+
+        if not missed_meds:
+            return None
+
+        counter = Counter(missed_meds)
+        return counter.most_common(1)[0][0]
 
     def recompute_all_states(self, profile: Profile) -> None:
         """

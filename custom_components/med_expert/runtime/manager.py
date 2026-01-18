@@ -9,25 +9,31 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo
 
-from homeassistant.components.persistent_notification import (
-    async_create as async_create_notification,
-)
-from homeassistant.components.persistent_notification import (
-    async_dismiss as async_dismiss_notification,
-)
+from homeassistant.core import Event, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from custom_components.med_expert.application.services import (
     AddMedicationCommand,
     MedicationService,
     PRNTakeCommand,
+    RefillCommand,
+    ReplaceInhalerCommand,
     SkipCommand,
     SnoozeCommand,
     TakeCommand,
+    UpdateInventoryCommand,
     UpdateMedicationCommand,
+    UpdateNotificationSettingsCommand,
+)
+from custom_components.med_expert.const import (
+    EVENT_MOBILE_APP_NOTIFICATION_ACTION,
+    NOTIFICATION_ACTION_SKIP,
+    NOTIFICATION_ACTION_SNOOZE,
+    NOTIFICATION_ACTION_TAKEN,
+    NOTIFICATION_TAG_PREFIX,
 )
 from custom_components.med_expert.domain.models import (
     Medication,
@@ -35,6 +41,7 @@ from custom_components.med_expert.domain.models import (
     Profile,
 )
 
+from .notifications import NotificationManager
 from .scheduler import MedicationScheduler
 
 if TYPE_CHECKING:
@@ -85,7 +92,8 @@ class ProfileManager:
             get_now=lambda: datetime.now(ZoneInfo(profile.timezone))
         )
         self._scheduler: MedicationScheduler | None = None
-        self._notification_ids: dict[str, str] = {}  # medication_id -> notification_id
+        self._notification_manager = NotificationManager(hass, entry_id)
+        self._action_unsubscribe: callable | None = None
 
     @property
     def profile(self) -> Profile:
@@ -140,6 +148,12 @@ class ProfileManager:
         # Schedule all medications
         self._scheduler.schedule_all()
 
+        # Subscribe to mobile_app notification actions
+        self._action_unsubscribe = self._hass.bus.async_listen(
+            EVENT_MOBILE_APP_NOTIFICATION_ACTION,
+            self._handle_notification_action,
+        )
+
         _LOGGER.info(
             "Started profile manager for %s with %d medications",
             self._profile.name,
@@ -152,10 +166,13 @@ class ProfileManager:
             self._scheduler.cancel_all()
             self._scheduler = None
 
+        # Unsubscribe from notification actions
+        if self._action_unsubscribe:
+            self._action_unsubscribe()
+            self._action_unsubscribe = None
+
         # Dismiss all notifications
-        for notification_id in self._notification_ids.values():
-            async_dismiss_notification(self._hass, notification_id)
-        self._notification_ids.clear()
+        await self._notification_manager.async_dismiss_all()
 
         _LOGGER.info("Stopped profile manager for %s", self._profile.name)
 
@@ -246,11 +263,7 @@ class ProfileManager:
                 self._scheduler.cancel_medication(medication_id)
 
             # Dismiss notification
-            if medication_id in self._notification_ids:
-                async_dismiss_notification(
-                    self._hass, self._notification_ids[medication_id]
-                )
-                del self._notification_ids[medication_id]
+            await self._notification_manager.async_dismiss_notification(medication_id)
 
             # Signal entities to update
             self._signal_medications_changed()
@@ -281,16 +294,18 @@ class ProfileManager:
 
         medication = self._profile.get_medication(command.medication_id)
         if medication:
+            # Check for low inventory warning
+            if medication.inventory and medication.inventory.is_low():
+                await self._notification_manager.async_send_low_inventory_notification(
+                    self._profile, medication
+                )
+
             # Reschedule
             if self._scheduler:
                 self._scheduler.reschedule_medication(medication)
 
             # Dismiss notification
-            if command.medication_id in self._notification_ids:
-                async_dismiss_notification(
-                    self._hass, self._notification_ids[command.medication_id]
-                )
-                del self._notification_ids[command.medication_id]
+            await self._notification_manager.async_dismiss_notification(command.medication_id)
 
             # Signal update
             self._signal_medication_updated(command.medication_id)
@@ -310,6 +325,14 @@ class ProfileManager:
 
         # Persist
         await self._repository.async_update(self._profile)
+
+        medication = self._profile.get_medication(command.medication_id)
+        if medication:
+            # Check for low inventory warning
+            if medication.inventory and medication.inventory.is_low():
+                await self._notification_manager.async_send_low_inventory_notification(
+                    self._profile, medication
+                )
 
         # Signal update
         self._signal_medication_updated(command.medication_id)
@@ -340,11 +363,7 @@ class ProfileManager:
                 self._scheduler.reschedule_medication(medication)
 
             # Dismiss notification
-            if command.medication_id in self._notification_ids:
-                async_dismiss_notification(
-                    self._hass, self._notification_ids[command.medication_id]
-                )
-                del self._notification_ids[command.medication_id]
+            await self._notification_manager.async_dismiss_notification(command.medication_id)
 
             # Signal update
             self._signal_medication_updated(command.medication_id)
@@ -374,11 +393,7 @@ class ProfileManager:
                 self._scheduler.reschedule_medication(medication)
 
             # Dismiss notification
-            if command.medication_id in self._notification_ids:
-                async_dismiss_notification(
-                    self._hass, self._notification_ids[command.medication_id]
-                )
-                del self._notification_ids[command.medication_id]
+            await self._notification_manager.async_dismiss_notification(command.medication_id)
 
             # Signal update
             self._signal_medication_updated(command.medication_id)
@@ -406,19 +421,9 @@ class ProfileManager:
         # Persist
         await self._repository.async_update(self._profile)
 
-        # Create notification
-        notification_id = f"med_expert_{self._entry_id}_{medication_id}"
-        self._notification_ids[medication_id] = notification_id
-
-        dose_str = ""
-        if medication.state.next_dose:
-            dose_str = f" ({medication.state.next_dose.format()})"
-
-        async_create_notification(
-            self._hass,
-            f"Time to take {medication.display_name}{dose_str}",
-            title="Medication Reminder",
-            notification_id=notification_id,
+        # Send actionable notification
+        await self._notification_manager.async_send_due_notification(
+            self._profile, medication
         )
 
         # Signal update
@@ -449,19 +454,10 @@ class ProfileManager:
         # Persist (status already updated by scheduler)
         await self._repository.async_update(self._profile)
 
-        # Update notification
-        notification_id = self._notification_ids.get(medication_id)
-        if notification_id:
-            dose_str = ""
-            if medication.state.next_dose:
-                dose_str = f" ({medication.state.next_dose.format()})"
-
-            async_create_notification(
-                self._hass,
-                f"MISSED: {medication.display_name}{dose_str}",
-                title="Medication Missed",
-                notification_id=notification_id,
-            )
+        # Send missed notification
+        await self._notification_manager.async_send_missed_notification(
+            self._profile, medication
+        )
 
         # Signal update
         self._signal_medication_updated(medication_id)
@@ -469,6 +465,186 @@ class ProfileManager:
         _LOGGER.warning(
             "Medication %s was missed",
             medication.display_name,
+        )
+
+    async def _handle_notification_action(self, event: Event) -> None:
+        """
+        Handle mobile_app notification action events.
+
+        Args:
+            event: The event data.
+
+        """
+        data: dict[str, Any] = event.data
+
+        # Check if this action is for us
+        action = data.get("action", "")
+        if not action.startswith("MED_EXPERT_"):
+            return
+
+        # Get the tag to extract medication_id
+        tag = data.get("tag", "")
+        if not tag.startswith(NOTIFICATION_TAG_PREFIX):
+            # Try to get from action data
+            return
+
+        # Extract entry_id and medication_id from tag
+        # Tag format: med_expert_{entry_id}_{medication_id}
+        parts = tag[len(NOTIFICATION_TAG_PREFIX):].split("_", 1)
+        if len(parts) < 2:
+            return
+
+        entry_id, medication_id = parts
+        if entry_id != self._entry_id:
+            # Not for this manager
+            return
+
+        medication = self._profile.get_medication(medication_id)
+        if medication is None:
+            _LOGGER.warning("Notification action for unknown medication: %s", medication_id)
+            return
+
+        _LOGGER.info(
+            "Handling notification action %s for medication %s",
+            action,
+            medication.display_name,
+        )
+
+        # Handle the action
+        if action == NOTIFICATION_ACTION_TAKEN:
+            await self.async_take(TakeCommand(medication_id=medication_id))
+        elif action == NOTIFICATION_ACTION_SNOOZE:
+            await self.async_snooze(SnoozeCommand(medication_id=medication_id))
+        elif action == NOTIFICATION_ACTION_SKIP:
+            await self.async_skip(SkipCommand(medication_id=medication_id))
+
+    async def async_refill(
+        self,
+        command: RefillCommand,
+    ) -> None:
+        """
+        Refill medication inventory.
+
+        Args:
+            command: The refill command.
+
+        """
+        self._service.refill(self._profile, command)
+
+        # Persist
+        await self._repository.async_update(self._profile)
+
+        # Signal update
+        self._signal_medication_updated(command.medication_id)
+
+        medication = self._profile.get_medication(command.medication_id)
+        if medication:
+            _LOGGER.info(
+                "Refilled medication %s, new quantity: %d",
+                medication.display_name,
+                medication.inventory.current_quantity if medication.inventory else 0,
+            )
+
+    async def async_update_inventory(
+        self,
+        command: UpdateInventoryCommand,
+    ) -> None:
+        """
+        Update inventory settings.
+
+        Args:
+            command: The update inventory command.
+
+        """
+        medication = self._profile.get_medication(command.medication_id)
+        if medication is None:
+            return
+
+        # Use service to update (would need to add this method, or update directly)
+        from datetime import date
+        from custom_components.med_expert.domain.models import Inventory
+
+        if medication.inventory is None:
+            medication.inventory = Inventory()
+
+        inv = medication.inventory
+        if command.current_quantity is not None:
+            inv.current_quantity = command.current_quantity
+        if command.package_size is not None:
+            inv.package_size = command.package_size
+        if command.refill_threshold is not None:
+            inv.refill_threshold = command.refill_threshold
+        if command.auto_decrement is not None:
+            inv.auto_decrement = command.auto_decrement
+        if command.expiry_date is not None:
+            inv.expiry_date = date.fromisoformat(command.expiry_date) if command.expiry_date else None
+        if command.pharmacy_name is not None:
+            inv.pharmacy_name = command.pharmacy_name
+        if command.pharmacy_phone is not None:
+            inv.pharmacy_phone = command.pharmacy_phone
+        if command.notes is not None:
+            inv.notes = command.notes
+
+        # Persist
+        await self._repository.async_update(self._profile)
+
+        # Signal update
+        self._signal_medication_updated(command.medication_id)
+
+    async def async_replace_inhaler(
+        self,
+        command: ReplaceInhalerCommand,
+    ) -> None:
+        """
+        Replace an inhaler.
+
+        Args:
+            command: The replace inhaler command.
+
+        """
+        self._service.replace_inhaler(self._profile, command)
+
+        # Persist
+        await self._repository.async_update(self._profile)
+
+        # Signal update
+        self._signal_medication_updated(command.medication_id)
+
+    async def async_update_notification_settings(
+        self,
+        command: UpdateNotificationSettingsCommand,
+    ) -> None:
+        """
+        Update notification settings.
+
+        Args:
+            command: The update command.
+
+        """
+        self._service.update_notification_settings(self._profile, command)
+
+        # Persist
+        await self._repository.async_update(self._profile)
+
+        _LOGGER.info(
+            "Updated notification settings for profile %s",
+            self._profile.name,
+        )
+
+    async def async_calculate_adherence(self) -> None:
+        """Calculate and update adherence statistics."""
+        self._service.calculate_adherence_stats(self._profile)
+
+        # Persist
+        await self._repository.async_update(self._profile)
+
+        # Signal update for adherence sensor
+        self._signal_medications_changed()
+
+        _LOGGER.info(
+            "Calculated adherence for profile %s: %.1f%% (30-day)",
+            self._profile.name,
+            self._profile.adherence_stats.monthly_rate,
         )
 
     def _signal_medication_updated(self, medication_id: str) -> None:

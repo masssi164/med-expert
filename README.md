@@ -19,12 +19,46 @@ Med Expert is a Home Assistant custom integration that helps you manage medicati
   - `as_needed`: PRN/on-demand medications
 - 💉 **Variable Doses**: Different doses for each time slot (e.g., 1 tablet morning, ½ tablet evening)
 - 🔢 **Rational Doses**: No float rounding errors (uses fractions: 1, ½, ¼)
+- 💊 **Dosage Forms**: Tablet, capsule, injection, inhaler, drops, patch, cream, and more
+- 📦 **Inventory Tracking**: Track stock levels with auto-decrement and low-stock warnings
+- 💉 **Injection Site Rotation**: Smart rotation for injection-based medications
+- 🌬️ **Inhaler Puff Counter**: Track remaining puffs in inhalers
+- 📊 **Adherence Analytics**: Track daily/weekly/monthly adherence rates and streaks
+- 🔔 **Actionable Notifications**: TAKEN/SNOOZE/SKIP buttons on mobile notifications
+- 📱 **Configurable Notifications**: Set your preferred notification target (mobile_app, etc.)
 - 🆘 **PRN Logging**: Log as-needed doses outside the schedule
 - 😴 **Snooze**: Delay reminders temporarily
 - ⏭️ **Skip**: Skip a dose with optional reason
-- 🔔 **Notifications**: Persistent notifications for due medications
 - 🕐 **DST-Safe**: Handles daylight saving time transitions correctly
 - 📊 **History Logging**: Complete intake history with doses and timestamps
+
+## What's New in v0.2.0
+
+### Dosage Forms with Compatible Units
+Each medication can now have a specific form (tablet, capsule, injection, inhaler, etc.) with form-specific icons and compatible units.
+
+### Inventory Management
+- Track current stock levels
+- Auto-decrement on take
+- Low-stock warnings
+- Expiry date tracking
+- Pharmacy contact info
+
+### Adherence Tracking
+- Daily, weekly, and monthly adherence rates
+- Current and longest streak tracking
+- Most-missed slot and medication identification
+
+### Actionable Mobile Notifications
+- TAKEN, SNOOZE, SKIP buttons on notifications
+- Configurable notification targets per profile
+- Notification grouping support
+
+### Injection Site Rotation
+Smart site rotation for insulin and other injectable medications.
+
+### Inhaler Tracking
+Track remaining puffs in inhalers with low-puff warnings.
 
 ## Installation
 
