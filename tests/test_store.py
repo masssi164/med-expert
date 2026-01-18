@@ -397,6 +397,56 @@ class TestMigrations:
         # We need to test the async method, but for simplicity test the sync parts
         assert current_data["schema_version"] == CURRENT_SCHEMA_VERSION
 
+    @pytest.mark.asyncio
+    async def test_async_migrate_store_wrapper(self):
+        """Test the _async_migrate_store wrapper function."""
+        from custom_components.med_expert.store import ProfileStore, STORE_VERSION
+
+        hass = MagicMock()
+        store = ProfileStore(hass)
+
+        # Test with v0 data
+        legacy_data = {
+            "schema_version": 0,
+            "profiles": {
+                "profile-1": {
+                    "profile_id": "profile-1",
+                    "name": "Test",
+                    "timezone": "UTC",
+                    "medications": {
+                        "med-1": {
+                            "medication_id": "med-1",
+                            "display_name": "Aspirin",
+                            "ref": {
+                                "provider": "manual",
+                                "external_id": "med-1",
+                                "display_name": "Aspirin",
+                            },
+                            "dose": 1,
+                            "schedule": {
+                                "kind": "times_per_day",
+                                "times": ["08:00"],
+                            },
+                            "policy": {},
+                            "state": {},
+                        },
+                    },
+                    "logs": [],
+                },
+            },
+        }
+
+        # Call the async migration wrapper
+        migrated = await store._async_migrate_store(0, 1, legacy_data)
+
+        # Verify migration was applied
+        med = migrated["profiles"]["profile-1"]["medications"]["med-1"]
+        assert "dose" not in med
+        assert "default_dose" in med["schedule"]
+        assert med["form"] == "tablet"  # v2 field
+        assert med["inventory"] is None  # v2 field
+        assert migrated["schema_version"] == 2
+
 
 class TestProfileOperations:
     """Tests for Profile model operations."""

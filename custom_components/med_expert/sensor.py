@@ -214,10 +214,18 @@ class MedicationStatusSensor(MedicationBaseSensor):
         if medication is None:
             return {}
 
+        manager = self._manager
         attrs = {
+            "entry_id": self._entry.entry_id,
+            "profile_name": manager.profile.name,
             "medication_id": medication.medication_id,
+            "display_name": medication.display_name,
             "schedule_kind": medication.schedule.kind.value,
         }
+
+        # Add form if present
+        if medication.form:
+            attrs["form"] = medication.form.value
 
         if medication.state.snooze_until:
             attrs["snooze_until"] = medication.state.snooze_until.isoformat()
@@ -419,11 +427,18 @@ class ProfileAdherenceSensor(SensorEntity):
     def extra_state_attributes(self) -> dict:
         """Return extra state attributes."""
         profile = self._manager.profile
+        
+        # Always include entry_id and profile_name
+        attrs = {
+            "entry_id": self._entry.entry_id,
+            "profile_name": profile.name,
+        }
+        
         if profile.adherence_stats is None:
-            return {}
+            return attrs
 
         stats = profile.adherence_stats
-        attrs = {
+        attrs.update({
             "daily_rate": round(stats.daily_rate, 1),
             "weekly_rate": round(stats.weekly_rate, 1),
             "monthly_rate": round(stats.monthly_rate, 1),
@@ -432,7 +447,7 @@ class ProfileAdherenceSensor(SensorEntity):
             "total_taken": stats.total_taken,
             "total_missed": stats.total_missed,
             "total_skipped": stats.total_skipped,
-        }
+        })
 
         if stats.most_missed_slot:
             attrs["most_missed_slot"] = stats.most_missed_slot

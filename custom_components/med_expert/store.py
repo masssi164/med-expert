@@ -44,6 +44,8 @@ class ProfileStore:
             hass,
             STORE_VERSION,
             f"{DOMAIN}.{STORE_KEY}",
+            minor_version=1,
+            async_migrate_func=self._async_migrate_store,
         )
         self._data: dict[str, Any] | None = None
 
@@ -74,11 +76,10 @@ class ProfileStore:
         for profile_id, profile_data in data.get("profiles", {}).items():
             try:
                 profiles[profile_id] = Profile.from_dict(profile_data)
-            except Exception as err:
+            except Exception:
                 _LOGGER.exception(
-                    "Failed to load profile %s: %s",
+                    "Failed to load profile %s",
                     profile_id,
-                    err,
                 )
 
         return profiles
@@ -131,6 +132,36 @@ class ProfileStore:
         if profile_id in self._data.get("profiles", {}):
             del self._data["profiles"][profile_id]
             await self._store.async_save(self._data)
+
+    async def _async_migrate_store(
+        self,
+        version: int,
+        minor_version: int,
+        data: dict[str, Any],
+    ) -> dict[str, Any]:
+        """
+        Migrate store data to current version.
+
+        This is called by Home Assistant's Store when loading data
+        with a different version number.
+
+        Args:
+            version: The stored major version.
+            minor_version: The stored minor version.
+            data: The stored data.
+
+        Returns:
+            Migrated data.
+
+        """
+        _LOGGER.info(
+            "Migrating med_expert storage from version %s.%s to %s.%s",
+            version,
+            minor_version,
+            STORE_VERSION,
+            1,
+        )
+        return await self._async_migrate(data)
 
     async def _async_migrate(self, data: dict[str, Any]) -> dict[str, Any]:
         """
@@ -197,7 +228,7 @@ class ProfileStore:
 
             medications = profile_data.get("medications", {})
 
-            for med_id, med_data in medications.items():
+            for med_data in medications.values():
                 # Add form if missing
                 if "form" not in med_data:
                     med_data["form"] = "tablet"
@@ -267,9 +298,15 @@ class ProfileStore:
                         schedule["default_dose"] = old_dose
                     elif isinstance(old_dose, (int, float)):
                         # Legacy: just a number, assume 1 tablet
+                        is_integer = old_dose == int(old_dose)
+                        numerator = (
+                            int(old_dose) if is_integer
+                            else int(old_dose * 4)
+                        )
+                        denominator = 1 if is_integer else 4
                         schedule["default_dose"] = {
-                            "numerator": int(old_dose) if old_dose == int(old_dose) else int(old_dose * 4),
-                            "denominator": 1 if old_dose == int(old_dose) else 4,
+                            "numerator": numerator,
+                            "denominator": denominator,
                             "unit": "tablet",
                         }
 
@@ -277,9 +314,15 @@ class ProfileStore:
                 if "slot_doses" in schedule:
                     for slot_key, slot_dose in schedule["slot_doses"].items():
                         if isinstance(slot_dose, (int, float)):
+                            is_integer = slot_dose == int(slot_dose)
+                            numerator = (
+                                int(slot_dose) if is_integer
+                                else int(slot_dose * 4)
+                            )
+                            denominator = 1 if is_integer else 4
                             schedule["slot_doses"][slot_key] = {
-                                "numerator": int(slot_dose) if slot_dose == int(slot_dose) else int(slot_dose * 4),
-                                "denominator": 1 if slot_dose == int(slot_dose) else 4,
+                                "numerator": numerator,
+                                "denominator": denominator,
                                 "unit": "tablet",
                             }
 
