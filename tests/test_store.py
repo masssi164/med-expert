@@ -398,8 +398,8 @@ class TestMigrations:
         assert current_data["schema_version"] == CURRENT_SCHEMA_VERSION
 
     @pytest.mark.asyncio
-    async def test_async_migrate_store_wrapper(self):
-        """Test the _async_migrate_store wrapper function."""
+    async def test_async_migrate_wrapper(self):
+        """Test the _async_migrate function."""
         from custom_components.med_expert.store import ProfileStore, STORE_VERSION
 
         hass = MagicMock()
@@ -436,8 +436,8 @@ class TestMigrations:
             },
         }
 
-        # Call the async migration wrapper
-        migrated = await store._async_migrate_store(0, 1, legacy_data)
+        # Call the async migration function directly
+        migrated = await store._async_migrate(legacy_data)
 
         # Verify migration was applied
         med = migrated["profiles"]["profile-1"]["medications"]["med-1"]
