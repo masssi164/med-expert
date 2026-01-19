@@ -21,72 +21,62 @@ async def test_store_migration_with_legacy_file():
     """
     hass = MagicMock()
     
-    # Create legacy v0 data
+    # Create legacy v0 data (just the data portion, not the wrapper)
     legacy_data = {
-        "version": 1,  # Store version in Home Assistant format
-        "minor_version": 1,
-        "key": "med_expert.med_expert_data",
-        "data": {
-            "schema_version": 0,
-            "profiles": {
-                "test-profile-123": {
-                    "profile_id": "test-profile-123",
-                    "name": "Test Patient",
-                    "timezone": "Europe/Berlin",
-                    "medications": {
-                        "med-aspirin": {
-                            "medication_id": "med-aspirin",
+        "schema_version": 0,
+        "profiles": {
+            "test-profile-123": {
+                "profile_id": "test-profile-123",
+                "name": "Test Patient",
+                "timezone": "Europe/Berlin",
+                "medications": {
+                    "med-aspirin": {
+                        "medication_id": "med-aspirin",
+                        "display_name": "Aspirin 100mg",
+                        "ref": {
+                            "provider": "manual",
+                            "external_id": "med-aspirin",
                             "display_name": "Aspirin 100mg",
-                            "ref": {
-                                "provider": "manual",
-                                "external_id": "med-aspirin",
-                                "display_name": "Aspirin 100mg",
-                            },
-                            "dose": 1.5,  # Old format: numeric dose
-                            "schedule": {
-                                "kind": "times_per_day",
-                                "times": ["08:00", "20:00"],
-                            },
-                            "policy": {},
-                            "state": {},
                         },
+                        "dose": 1.5,  # Old format: numeric dose
+                        "schedule": {
+                            "kind": "times_per_day",
+                            "times": ["08:00", "20:00"],
+                        },
+                        "policy": {},
+                        "state": {},
                     },
-                    "logs": [
-                        {
-                            "action": "taken",
-                            "taken_at": "2025-01-15T08:05:00+01:00",
-                            "scheduled_for": "2025-01-15T08:00:00+01:00",
-                            "slot_key": "08:00",
-                            # Missing dose field - should be migrated
-                        },
-                    ],
                 },
+                "logs": [
+                    {
+                        "action": "taken",
+                        "taken_at": "2025-01-15T08:05:00+01:00",
+                        "scheduled_for": "2025-01-15T08:00:00+01:00",
+                        "slot_key": "08:00",
+                        # Missing dose field - should be migrated
+                    },
+                ],
             },
         },
     }
     
     # Mock the Store.async_load to return our legacy data
-    # but trigger the migration by calling the migrate function
     with patch("custom_components.med_expert.store.Store") as MockStore:
         mock_store_instance = MagicMock()
+        mock_store_instance.async_load = AsyncMock(return_value=legacy_data)
         MockStore.return_value = mock_store_instance
         
-        # Simulate what Home Assistant does when it detects version mismatch
+        # Create ProfileStore and load data - migration happens in async_load
         store = ProfileStore(hass)
+        profiles = await store.async_load()
         
-        # Get the migration function that was passed to Store
+        # Verify Store was called without async_migrate_func
         call_kwargs = MockStore.call_args.kwargs
-        assert "async_migrate_func" in call_kwargs
-        migrate_func = call_kwargs["async_migrate_func"]
+        assert "async_migrate_func" not in call_kwargs
+        assert call_kwargs.get("minor_version") == 1
         
-        # Call the migration function as Home Assistant would
-        migrated_data = await migrate_func(
-            legacy_data["version"],
-            legacy_data["minor_version"],
-            legacy_data["data"],
-        )
-        
-        # Verify migration was successful
+        # Verify migration was successful - check the internal data
+        migrated_data = store._data
         assert migrated_data["schema_version"] == 2
         
         # Check medication was migrated
@@ -118,56 +108,49 @@ async def test_store_migration_v1_to_v2():
     hass = MagicMock()
     
     v1_data = {
-        "version": 2,
-        "minor_version": 1,
-        "key": "med_expert.med_expert_data",
-        "data": {
-            "schema_version": 1,
-            "profiles": {
-                "profile-xyz": {
-                    "profile_id": "profile-xyz",
-                    "name": "Patient",
-                    "timezone": "UTC",
-                    "medications": {
-                        "med-insulin": {
-                            "medication_id": "med-insulin",
+        "schema_version": 1,
+        "profiles": {
+            "profile-xyz": {
+                "profile_id": "profile-xyz",
+                "name": "Patient",
+                "timezone": "UTC",
+                "medications": {
+                    "med-insulin": {
+                        "medication_id": "med-insulin",
+                        "display_name": "Insulin",
+                        "ref": {
+                            "provider": "manual",
+                            "external_id": "med-insulin",
                             "display_name": "Insulin",
-                            "ref": {
-                                "provider": "manual",
-                                "external_id": "med-insulin",
-                                "display_name": "Insulin",
-                            },
-                            "schedule": {
-                                "kind": "times_per_day",
-                                "times": ["07:00", "19:00"],
-                                "default_dose": {
-                                    "numerator": 10,
-                                    "denominator": 1,
-                                    "unit": "unit",
-                                },
-                            },
-                            "policy": {},
-                            "state": {},
                         },
+                        "schedule": {
+                            "kind": "times_per_day",
+                            "times": ["07:00", "19:00"],
+                            "default_dose": {
+                                "numerator": 10,
+                                "denominator": 1,
+                                "unit": "unit",
+                            },
+                        },
+                        "policy": {},
+                        "state": {},
                     },
-                    "logs": [],
                 },
+                "logs": [],
             },
         },
     }
     
     with patch("custom_components.med_expert.store.Store") as MockStore:
         mock_store_instance = MagicMock()
+        mock_store_instance.async_load = AsyncMock(return_value=v1_data)
         MockStore.return_value = mock_store_instance
         
         store = ProfileStore(hass)
-        migrate_func = MockStore.call_args.kwargs["async_migrate_func"]
+        profiles = await store.async_load()
         
-        migrated_data = await migrate_func(
-            v1_data["version"],
-            v1_data["minor_version"],
-            v1_data["data"],
-        )
+        # Get the migrated data
+        migrated_data = store._data
         
         # Check v2 fields were added
         profile = migrated_data["profiles"]["profile-xyz"]
@@ -208,21 +191,14 @@ async def test_repository_load_with_migration():
     
     with patch("custom_components.med_expert.store.Store") as MockStore:
         mock_store_instance = MagicMock()
+        mock_store_instance.async_load = AsyncMock(return_value=legacy_data)
         MockStore.return_value = mock_store_instance
-        
-        # Mock async_load to trigger migration
-        async def mock_load():
-            store = ProfileStore(hass)
-            migrate_func = MockStore.call_args.kwargs["async_migrate_func"]
-            return await migrate_func(1, 1, legacy_data)
-        
-        mock_store_instance.async_load = mock_load
         
         # Create repository and load
         store = ProfileStore(hass)
         repository = ProfileRepository(store)
         
-        # This should not raise NotImplementedError
+        # This should not raise errors - migration happens in ProfileStore.async_load
         await repository.async_load()
         
         # Verify profile was loaded
@@ -242,13 +218,15 @@ async def test_no_migration_needed_for_current_version():
     
     with patch("custom_components.med_expert.store.Store") as MockStore:
         mock_store_instance = MagicMock()
+        mock_store_instance.async_load = AsyncMock(return_value=current_data)
         MockStore.return_value = mock_store_instance
         
         store = ProfileStore(hass)
-        migrate_func = MockStore.call_args.kwargs["async_migrate_func"]
+        profiles = await store.async_load()
+        
+        # Get the data after loading
+        result = store._data
         
         # Migration should return data unchanged
-        result = await migrate_func(2, 1, current_data)
-        
         assert result["schema_version"] == 2
         assert result["profiles"] == {}

@@ -45,7 +45,6 @@ class ProfileStore:
             STORE_VERSION,
             f"{DOMAIN}.{STORE_KEY}",
             minor_version=1,
-            async_migrate_func=self._async_migrate_store,
         )
         self._data: dict[str, Any] | None = None
 
@@ -132,36 +131,6 @@ class ProfileStore:
         if profile_id in self._data.get("profiles", {}):
             del self._data["profiles"][profile_id]
             await self._store.async_save(self._data)
-
-    async def _async_migrate_store(
-        self,
-        version: int,
-        minor_version: int,
-        data: dict[str, Any],
-    ) -> dict[str, Any]:
-        """
-        Migrate store data to current version.
-
-        This is called by Home Assistant's Store when loading data
-        with a different version number.
-
-        Args:
-            version: The stored major version.
-            minor_version: The stored minor version.
-            data: The stored data.
-
-        Returns:
-            Migrated data.
-
-        """
-        _LOGGER.info(
-            "Migrating med_expert storage from version %s.%s to %s.%s",
-            version,
-            minor_version,
-            STORE_VERSION,
-            1,
-        )
-        return await self._async_migrate(data)
 
     async def _async_migrate(self, data: dict[str, Any]) -> dict[str, Any]:
         """

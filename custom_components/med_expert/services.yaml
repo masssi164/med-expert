@@ -1,0 +1,485 @@
+# Services for Med Expert integration
+
+take:
+  name: Take medication
+  description: Record that a scheduled medication has been taken.
+  fields:
+    entry_id:
+      name: Config Entry ID
+      description: The configuration entry ID for the profile.
+      required: true
+      example: "abc123def456"
+      selector:
+        text:
+    medication_id:
+      name: Medication ID
+      description: The unique identifier of the medication.
+      required: true
+      example: "med_xyz789"
+      selector:
+        text:
+    taken_at:
+      name: Taken At
+      description: Optional timestamp when medication was taken (defaults to now).
+      required: false
+      selector:
+        datetime:
+    dose_numerator:
+      name: Dose Numerator
+      description: Optional numerator for custom dose amount.
+      required: false
+      example: 1
+      selector:
+        number:
+          min: 1
+          mode: box
+    dose_denominator:
+      name: Dose Denominator
+      description: Optional denominator for custom dose amount.
+      required: false
+      example: 2
+      selector:
+        number:
+          min: 1
+          mode: box
+    dose_unit:
+      name: Dose Unit
+      description: Optional unit for the dose (e.g., tablet, mg, ml).
+      required: false
+      example: "tablet"
+      selector:
+        text:
+    injection_site:
+      name: Injection Site
+      description: Optional injection site for injectable medications.
+      required: false
+      selector:
+        select:
+          options:
+            - "left_arm"
+            - "right_arm"
+            - "left_thigh"
+            - "right_thigh"
+            - "abdomen_left"
+            - "abdomen_right"
+            - "left_buttock"
+            - "right_buttock"
+
+prn_take:
+  name: Take PRN medication
+  description: Record that an as-needed (PRN) medication has been taken.
+  fields:
+    entry_id:
+      name: Config Entry ID
+      description: The configuration entry ID for the profile.
+      required: true
+      selector:
+        text:
+    medication_id:
+      name: Medication ID
+      description: The unique identifier of the medication.
+      required: true
+      selector:
+        text:
+    dose_numerator:
+      name: Dose Numerator
+      description: Numerator for the dose amount.
+      required: true
+      example: 1
+      selector:
+        number:
+          min: 1
+          mode: box
+    dose_denominator:
+      name: Dose Denominator
+      description: Denominator for the dose amount.
+      required: true
+      example: 1
+      selector:
+        number:
+          min: 1
+          mode: box
+    dose_unit:
+      name: Dose Unit
+      description: Unit for the dose (e.g., tablet, mg, ml).
+      required: true
+      example: "tablet"
+      selector:
+        text:
+    taken_at:
+      name: Taken At
+      description: Optional timestamp when medication was taken (defaults to now).
+      required: false
+      selector:
+        datetime:
+    note:
+      name: Note
+      description: Optional note about why medication was taken.
+      required: false
+      selector:
+        text:
+    injection_site:
+      name: Injection Site
+      description: Optional injection site for injectable medications.
+      required: false
+      selector:
+        select:
+          options:
+            - "left_arm"
+            - "right_arm"
+            - "left_thigh"
+            - "right_thigh"
+            - "abdomen_left"
+            - "abdomen_right"
+            - "left_buttock"
+            - "right_buttock"
+
+snooze:
+  name: Snooze medication reminder
+  description: Delay a medication reminder for a specified number of minutes.
+  fields:
+    entry_id:
+      name: Config Entry ID
+      description: The configuration entry ID for the profile.
+      required: true
+      selector:
+        text:
+    medication_id:
+      name: Medication ID
+      description: The unique identifier of the medication.
+      required: true
+      selector:
+        text:
+    minutes:
+      name: Minutes
+      description: Number of minutes to snooze (defaults to 10).
+      required: false
+      example: 10
+      selector:
+        number:
+          min: 1
+          max: 1440
+          mode: box
+
+skip:
+  name: Skip medication dose
+  description: Skip the current scheduled dose of a medication.
+  fields:
+    entry_id:
+      name: Config Entry ID
+      description: The configuration entry ID for the profile.
+      required: true
+      selector:
+        text:
+    medication_id:
+      name: Medication ID
+      description: The unique identifier of the medication.
+      required: true
+      selector:
+        text:
+    reason:
+      name: Reason
+      description: Optional reason for skipping the dose.
+      required: false
+      selector:
+        text:
+
+add_medication:
+  name: Add medication
+  description: Add a new medication to a profile.
+  fields:
+    entry_id:
+      name: Config Entry ID
+      description: The configuration entry ID for the profile.
+      required: true
+      selector:
+        text:
+    display_name:
+      name: Display Name
+      description: The display name for the medication.
+      required: true
+      example: "Aspirin 100mg"
+      selector:
+        text:
+    schedule_kind:
+      name: Schedule Kind
+      description: The type of schedule for this medication.
+      required: true
+      selector:
+        select:
+          options:
+            - "times_per_day"
+            - "interval"
+            - "weekly"
+            - "as_needed"
+            - "depot"
+    times:
+      name: Times
+      description: List of times for times_per_day or weekly schedules (format HH:MM).
+      required: false
+      example: ["08:00", "20:00"]
+      selector:
+        object:
+    weekdays:
+      name: Weekdays
+      description: List of weekdays (0=Monday, 6=Sunday) for weekly schedules.
+      required: false
+      example: [0, 2, 4]
+      selector:
+        object:
+    interval_minutes:
+      name: Interval Minutes
+      description: Interval in minutes for interval schedules.
+      required: false
+      example: 480
+      selector:
+        number:
+          min: 1
+          mode: box
+    slot_doses:
+      name: Slot Doses
+      description: Dictionary mapping time slots to doses.
+      required: false
+      selector:
+        object:
+    default_dose:
+      name: Default Dose
+      description: Default dose specification.
+      required: false
+      selector:
+        object:
+    form:
+      name: Form
+      description: Dosage form (tablet, capsule, injection, etc.).
+      required: false
+      selector:
+        select:
+          options:
+            - "tablet"
+            - "capsule"
+            - "injection"
+            - "nasal_spray"
+            - "inhaler"
+            - "drops"
+            - "cream"
+            - "patch"
+            - "suppository"
+            - "liquid"
+            - "powder"
+            - "other"
+    default_unit:
+      name: Default Unit
+      description: Default unit for the medication.
+      required: false
+      selector:
+        text:
+    inventory:
+      name: Inventory
+      description: Inventory tracking configuration.
+      required: false
+      selector:
+        object:
+    notes:
+      name: Notes
+      description: Additional notes about the medication.
+      required: false
+      selector:
+        text:
+    policy:
+      name: Policy
+      description: Reminder policy configuration.
+      required: false
+      selector:
+        object:
+    interaction_warnings:
+      name: Interaction Warnings
+      description: List of interaction warnings.
+      required: false
+      selector:
+        object:
+    is_active:
+      name: Is Active
+      description: Whether the medication is currently active.
+      required: false
+      default: true
+      selector:
+        boolean:
+
+update_medication:
+  name: Update medication
+  description: Update an existing medication's properties.
+  fields:
+    entry_id:
+      name: Config Entry ID
+      description: The configuration entry ID for the profile.
+      required: true
+      selector:
+        text:
+    medication_id:
+      name: Medication ID
+      description: The unique identifier of the medication.
+      required: true
+      selector:
+        text:
+    updates:
+      name: Updates
+      description: Dictionary of fields to update.
+      required: true
+      selector:
+        object:
+
+remove_medication:
+  name: Remove medication
+  description: Remove a medication from a profile.
+  fields:
+    entry_id:
+      name: Config Entry ID
+      description: The configuration entry ID for the profile.
+      required: true
+      selector:
+        text:
+    medication_id:
+      name: Medication ID
+      description: The unique identifier of the medication to remove.
+      required: true
+      selector:
+        text:
+
+refill:
+  name: Refill inventory
+  description: Record a refill of medication inventory.
+  fields:
+    entry_id:
+      name: Config Entry ID
+      description: The configuration entry ID for the profile.
+      required: true
+      selector:
+        text:
+    medication_id:
+      name: Medication ID
+      description: The unique identifier of the medication.
+      required: true
+      selector:
+        text:
+    quantity:
+      name: Quantity
+      description: Amount to add to inventory.
+      required: true
+      selector:
+        number:
+          min: 0
+          mode: box
+    expiry_date:
+      name: Expiry Date
+      description: Optional expiry date for the refilled medication.
+      required: false
+      selector:
+        date:
+
+update_inventory:
+  name: Update inventory
+  description: Manually update the inventory count for a medication.
+  fields:
+    entry_id:
+      name: Config Entry ID
+      description: The configuration entry ID for the profile.
+      required: true
+      selector:
+        text:
+    medication_id:
+      name: Medication ID
+      description: The unique identifier of the medication.
+      required: true
+      selector:
+        text:
+    quantity:
+      name: Quantity
+      description: New inventory quantity.
+      required: true
+      selector:
+        number:
+          min: 0
+          mode: box
+
+replace_inhaler:
+  name: Replace inhaler
+  description: Replace an inhaler and reset the puff counter.
+  fields:
+    entry_id:
+      name: Config Entry ID
+      description: The configuration entry ID for the profile.
+      required: true
+      selector:
+        text:
+    medication_id:
+      name: Medication ID
+      description: The unique identifier of the inhaler medication.
+      required: true
+      selector:
+        text:
+    total_puffs:
+      name: Total Puffs
+      description: Total number of puffs in the new inhaler.
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+
+update_notification_settings:
+  name: Update notification settings
+  description: Update notification settings for a profile.
+  fields:
+    entry_id:
+      name: Config Entry ID
+      description: The configuration entry ID for the profile.
+      required: true
+      selector:
+        text:
+    notify_target:
+      name: Notify Target
+      description: The primary notification target service.
+      required: false
+      selector:
+        text:
+    fallback_targets:
+      name: Fallback Targets
+      description: List of fallback notification targets.
+      required: false
+      selector:
+        object:
+    group_notifications:
+      name: Group Notifications
+      description: Whether to group notifications.
+      required: false
+      selector:
+        boolean:
+    include_actions:
+      name: Include Actions
+      description: Whether to include action buttons in notifications.
+      required: false
+      selector:
+        boolean:
+    title_template:
+      name: Title Template
+      description: Custom template for notification titles.
+      required: false
+      selector:
+        text:
+    message_template:
+      name: Message Template
+      description: Custom template for notification messages.
+      required: false
+      selector:
+        text:
+
+calculate_adherence:
+  name: Calculate adherence
+  description: Manually trigger adherence calculation for a profile.
+  fields:
+    entry_id:
+      name: Config Entry ID
+      description: The configuration entry ID for the profile.
+      required: true
+      selector:
+        text:
