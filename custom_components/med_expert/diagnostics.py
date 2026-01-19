@@ -36,20 +36,22 @@ async def async_get_config_entry_diagnostics(
     # Collect medication summaries (redacted)
     medications_summary = []
     for med in profile.medications.values():
-        medications_summary.append({
-            "display_name": med.display_name,
-            "schedule_kind": med.schedule.kind.value,
-            "status": med.state.status.value,
-            "has_next_due": med.state.next_due is not None,
-            "has_snooze": med.state.snooze_until is not None,
-            "has_last_taken": med.state.last_taken is not None,
-            "policy": {
-                "grace_minutes": med.policy.grace_minutes,
-                "snooze_minutes": med.policy.snooze_minutes,
-                "prn_affects_schedule": med.policy.prn_affects_schedule,
-                "has_quiet_hours": med.policy.quiet_hours_start is not None,
-            },
-        })
+        medications_summary.append(
+            {
+                "display_name": med.display_name,
+                "schedule_kind": med.schedule.kind.value,
+                "status": med.state.status.value,
+                "has_next_due": med.state.next_due is not None,
+                "has_snooze": med.state.snooze_until is not None,
+                "has_last_taken": med.state.last_taken is not None,
+                "policy": {
+                    "grace_minutes": med.policy.grace_minutes,
+                    "snooze_minutes": med.policy.snooze_minutes,
+                    "prn_affects_schedule": med.policy.prn_affects_schedule,
+                    "has_quiet_hours": med.policy.quiet_hours_start is not None,
+                },
+            }
+        )
 
     # Collect log statistics (no personal data)
     log_stats = {
@@ -58,7 +60,9 @@ async def async_get_config_entry_diagnostics(
     }
     for log in profile.logs:
         action = log.action.value
-        log_stats["action_counts"][action] = log_stats["action_counts"].get(action, 0) + 1
+        log_stats["action_counts"][action] = (
+            log_stats["action_counts"].get(action, 0) + 1
+        )
 
     # Schedule kind distribution
     schedule_kinds = {}

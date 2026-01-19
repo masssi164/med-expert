@@ -87,7 +87,9 @@ class MedicationBaseButton(ButtonEntity):
         self._button_type = button_type
 
         # Entity IDs
-        self._attr_unique_id = f"{entry.entry_id}_{medication.medication_id}_{button_type}"
+        self._attr_unique_id = (
+            f"{entry.entry_id}_{medication.medication_id}_{button_type}"
+        )
 
         # Device info - group all entities for same medication
         self._attr_device_info = DeviceInfo(

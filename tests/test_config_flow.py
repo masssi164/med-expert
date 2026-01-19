@@ -1,4 +1,5 @@
-"""Tests for the config flow.
+"""
+Tests for the config flow.
 
 NOTE: These tests require pytest-homeassistant-custom-component and a compatible
 Python version (3.12 or 3.13). They will be skipped if the HA test fixtures are
@@ -7,26 +8,27 @@ not available.
 
 from __future__ import annotations
 
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch
+
 import pytest
 
 # Skip all tests in this module if HA fixtures are not available
 try:
     from pytest_homeassistant_custom_component.common import MockConfigEntry
+
     HAS_HA_FIXTURES = True
 except ImportError:
     HAS_HA_FIXTURES = False
 
 pytestmark = pytest.mark.skipif(
-    not HAS_HA_FIXTURES,
-    reason="Requires pytest-homeassistant-custom-component"
+    not HAS_HA_FIXTURES, reason="Requires pytest-homeassistant-custom-component"
 )
 
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 
-from custom_components.med_expert.const import DOMAIN, CONF_PROFILE_NAME
+from custom_components.med_expert.const import CONF_PROFILE_NAME, DOMAIN
 
 
 @pytest.fixture

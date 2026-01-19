@@ -265,7 +265,9 @@ class DoseQuantity:
         if self.unit != other.unit:
             msg = f"Cannot add doses with different units: {self.unit} vs {other.unit}"
             raise ValueError(msg)
-        new_num = self.numerator * other.denominator + other.numerator * self.denominator
+        new_num = (
+            self.numerator * other.denominator + other.numerator * self.denominator
+        )
         new_denom = self.denominator * other.denominator
         return DoseQuantity.normalize(new_num, new_denom, self.unit)
 
@@ -361,7 +363,9 @@ class ScheduleSpec:
         """Create from dictionary."""
         slot_doses = None
         if data.get("slot_doses"):
-            slot_doses = {k: DoseQuantity.from_dict(v) for k, v in data["slot_doses"].items()}
+            slot_doses = {
+                k: DoseQuantity.from_dict(v) for k, v in data["slot_doses"].items()
+            }
 
         default_dose = None
         if data.get("default_dose"):
@@ -448,10 +452,14 @@ class MedicationState:
             "next_due": self.next_due.isoformat() if self.next_due else None,
             "next_dose": self.next_dose.to_dict() if self.next_dose else None,
             "next_slot_key": self.next_slot_key,
-            "snooze_until": self.snooze_until.isoformat() if self.snooze_until else None,
+            "snooze_until": self.snooze_until.isoformat()
+            if self.snooze_until
+            else None,
             "last_taken": self.last_taken.isoformat() if self.last_taken else None,
             "status": self.status.value,
-            "last_notified_at": self.last_notified_at.isoformat() if self.last_notified_at else None,
+            "last_notified_at": self.last_notified_at.isoformat()
+            if self.last_notified_at
+            else None,
         }
 
     @classmethod
@@ -506,7 +514,9 @@ class LogRecord:
         result = {
             "action": self.action.value,
             "taken_at": self.taken_at.isoformat(),
-            "scheduled_for": self.scheduled_for.isoformat() if self.scheduled_for else None,
+            "scheduled_for": self.scheduled_for.isoformat()
+            if self.scheduled_for
+            else None,
             "dose": self.dose.to_dict() if self.dose else None,
             "slot_key": self.slot_key,
             "meta": self.meta,
@@ -518,7 +528,9 @@ class LogRecord:
         return result
 
     @classmethod
-    def from_dict(cls, data: dict, default_dose: DoseQuantity | None = None) -> LogRecord:
+    def from_dict(
+        cls, data: dict, default_dose: DoseQuantity | None = None
+    ) -> LogRecord:
         """
         Create from dictionary.
 
@@ -636,9 +648,7 @@ class Inventory:
 class InjectionTracking:
     """Tracking for injection site rotation."""
 
-    sites: list[InjectionSite] = field(
-        default_factory=lambda: list(InjectionSite)
-    )
+    sites: list[InjectionSite] = field(default_factory=lambda: list(InjectionSite))
     last_site: InjectionSite | None = None
     rotation_enabled: bool = True
 
@@ -749,7 +759,9 @@ class Medication:
     injection_tracking: InjectionTracking | None = None
     inhaler_tracking: InhalerTracking | None = None
     # Interaction warnings (simple MVP approach)
-    interaction_warnings: list[dict] | None = None  # [{medication_id, min_interval_hours, warning}]
+    interaction_warnings: list[dict] | None = (
+        None  # [{medication_id, min_interval_hours, warning}]
+    )
     # User notes
     notes: str | None = None
     # Active flag for soft-delete or pause
@@ -960,14 +972,18 @@ class AdherenceStats:
             "monthly_rate": self.monthly_rate,
             "current_streak": self.current_streak,
             "longest_streak": self.longest_streak,
-            "last_streak_date": self.last_streak_date.isoformat() if self.last_streak_date else None,
+            "last_streak_date": self.last_streak_date.isoformat()
+            if self.last_streak_date
+            else None,
             "most_missed_slot": self.most_missed_slot,
             "most_missed_medication": self.most_missed_medication,
             "most_missed_medication_id": self.most_missed_medication_id,
             "total_taken": self.total_taken,
             "total_missed": self.total_missed,
             "total_skipped": self.total_skipped,
-            "last_calculated": self.last_calculated.isoformat() if self.last_calculated else None,
+            "last_calculated": self.last_calculated.isoformat()
+            if self.last_calculated
+            else None,
         }
 
     @classmethod
@@ -1013,7 +1029,9 @@ class Profile:
     logs: list[LogRecord] = field(default_factory=list)
     default_policy: ReminderPolicy = field(default_factory=ReminderPolicy)
     # New fields
-    notification_settings: NotificationSettings = field(default_factory=NotificationSettings)
+    notification_settings: NotificationSettings = field(
+        default_factory=NotificationSettings
+    )
     adherence_stats: AdherenceStats = field(default_factory=AdherenceStats)
     # User metadata
     owner_name: str | None = None  # For multi-user display
@@ -1063,7 +1081,9 @@ class Profile:
             filtered = filtered[-limit:]
         return filtered
 
-    def get_recent_logs(self, days: int = 7, limit: int | None = None) -> list[LogRecord]:
+    def get_recent_logs(
+        self, days: int = 7, limit: int | None = None
+    ) -> list[LogRecord]:
         """Get recent log records within the specified number of days."""
         tz = ZoneInfo(self.timezone)
         cutoff = datetime.now(tz) - timedelta(days=days)
@@ -1081,13 +1101,21 @@ class Profile:
         tz = ZoneInfo(self.timezone)
         cutoff = datetime.now(tz) - timedelta(days=days)
         taken_count = sum(
-            1 for log in self.logs
-            if log.taken_at >= cutoff and log.action in (LogAction.TAKEN, LogAction.PRN_TAKEN)
+            1
+            for log in self.logs
+            if log.taken_at >= cutoff
+            and log.action in (LogAction.TAKEN, LogAction.PRN_TAKEN)
         )
         expected_count = sum(
-            1 for log in self.logs
-            if log.taken_at >= cutoff and log.action in (
-                LogAction.TAKEN, LogAction.PRN_TAKEN, LogAction.SKIPPED, LogAction.MISSED
+            1
+            for log in self.logs
+            if log.taken_at >= cutoff
+            and log.action
+            in (
+                LogAction.TAKEN,
+                LogAction.PRN_TAKEN,
+                LogAction.SKIPPED,
+                LogAction.MISSED,
             )
         )
         if expected_count == 0:
@@ -1131,7 +1159,9 @@ class Profile:
 
         notification_settings = NotificationSettings()
         if data.get("notification_settings"):
-            notification_settings = NotificationSettings.from_dict(data["notification_settings"])
+            notification_settings = NotificationSettings.from_dict(
+                data["notification_settings"]
+            )
 
         adherence_stats = AdherenceStats()
         if data.get("adherence_stats"):

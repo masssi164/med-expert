@@ -8,7 +8,7 @@ Coordinates between domain models, repository, and providers.
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -26,7 +26,6 @@ from custom_components.med_expert.domain.models import (
     Medication,
     MedicationRef,
     MedicationStatus,
-    NotificationSettings,
     Profile,
     ReminderPolicy,
     ScheduleKind,
@@ -36,37 +35,31 @@ from custom_components.med_expert.domain.policies import compute_snooze_until
 from custom_components.med_expert.domain.schedule import compute_next_occurrence
 
 # Type alias for state change callback
-StateChangeCallback = Callable[[str, str], Awaitable[None]]  # (profile_id, medication_id)
+StateChangeCallback = Callable[[str, str], Awaitable[None]]
 
 
 class MedicationServiceError(Exception):
     """Base exception for medication service errors."""
 
 
-
 class ProfileNotFoundError(MedicationServiceError):
     """Raised when a profile is not found."""
-
 
 
 class MedicationNotFoundError(MedicationServiceError):
     """Raised when a medication is not found."""
 
 
-
 class ValidationError(MedicationServiceError):
     """Raised when validation fails."""
-
 
 
 class InventoryError(MedicationServiceError):
     """Raised when there's an inventory-related error."""
 
 
-
 class UnitCompatibilityError(ValidationError):
     """Raised when a unit is incompatible with a dosage form."""
-
 
 
 # ============================================================================
@@ -138,7 +131,10 @@ class AddMedicationCommand:
                 dosage_form = DosageForm(self.form)
                 compatible_units = DosageFormInfo.get_compatible_units(dosage_form)
                 if self.default_unit and self.default_unit not in compatible_units:
-                    msg = f"Unit '{self.default_unit}' is not compatible with form '{self.form}'. Compatible units: {compatible_units}"
+                    msg = (
+                        f"Unit '{self.default_unit}' is not compatible with "
+                        f"form '{self.form}'. Compatible units: {compatible_units}"
+                    )
                     raise UnitCompatibilityError(msg)
             except ValueError:
                 msg = f"Invalid dosage form: {self.form}"
@@ -299,8 +295,7 @@ class MedicationService:
         slot_doses = None
         if command.slot_doses:
             slot_doses = {
-                k: DoseQuantity.from_dict(v)
-                for k, v in command.slot_doses.items()
+                k: DoseQuantity.from_dict(v) for k, v in command.slot_doses.items()
             }
 
         default_dose = None
@@ -311,11 +306,13 @@ class MedicationService:
         start_date = None
         if command.start_date:
             from datetime import date
+
             start_date = date.fromisoformat(command.start_date)
 
         end_date = None
         if command.end_date:
             from datetime import date
+
             end_date = date.fromisoformat(command.end_date)
 
         schedule = ScheduleSpec(
@@ -419,7 +416,10 @@ class MedicationService:
             # Auto-configure tracking based on new form
             if medication.form:
                 form_info = DosageFormInfo.get(medication.form)
-                if form_info.supports_site_tracking and not medication.injection_tracking:
+                if (
+                    form_info.supports_site_tracking
+                    and not medication.injection_tracking
+                ):
                     medication.injection_tracking = InjectionTracking()
                 if form_info.supports_puff_counter and not medication.inhaler_tracking:
                     medication.inhaler_tracking = InhalerTracking()
@@ -443,7 +443,11 @@ class MedicationService:
             if "auto_decrement" in updates:
                 inv.auto_decrement = updates["auto_decrement"]
             if "expiry_date" in updates:
-                inv.expiry_date = date.fromisoformat(updates["expiry_date"]) if updates["expiry_date"] else None
+                inv.expiry_date = (
+                    date.fromisoformat(updates["expiry_date"])
+                    if updates["expiry_date"]
+                    else None
+                )
             if "pharmacy_name" in updates:
                 inv.pharmacy_name = updates["pharmacy_name"]
             if "pharmacy_phone" in updates:
@@ -529,7 +533,10 @@ class MedicationService:
         injection_site = None
         if command.injection_site:
             injection_site = InjectionSite(command.injection_site)
-        elif medication.injection_tracking and medication.injection_tracking.rotation_enabled:
+        elif (
+            medication.injection_tracking
+            and medication.injection_tracking.rotation_enabled
+        ):
             injection_site = medication.injection_tracking.get_next_site()
 
         # Create log record with medication_id for filtering
@@ -600,7 +607,10 @@ class MedicationService:
         injection_site = None
         if command.injection_site:
             injection_site = InjectionSite(command.injection_site)
-        elif medication.injection_tracking and medication.injection_tracking.rotation_enabled:
+        elif (
+            medication.injection_tracking
+            and medication.injection_tracking.rotation_enabled
+        ):
             injection_site = medication.injection_tracking.get_next_site()
 
         # Create log record with scheduled_for=None (PRN marker)
@@ -676,9 +686,7 @@ class MedicationService:
         if command.until:
             snooze_until = command.until
         else:
-            snooze_until = compute_snooze_until(
-                medication.policy, now, command.minutes
-            )
+            snooze_until = compute_snooze_until(medication.policy, now, command.minutes)
 
         # Create log record
         log = LogRecord(
@@ -882,22 +890,25 @@ class MedicationService:
         # Count totals (last 30 days)
         cutoff = now - timedelta(days=30)
         stats.total_taken = sum(
-            1 for log in profile.logs
-            if log.taken_at >= cutoff and log.action in (LogAction.TAKEN, LogAction.PRN_TAKEN)
+            1
+            for log in profile.logs
+            if log.taken_at >= cutoff
+            and log.action in (LogAction.TAKEN, LogAction.PRN_TAKEN)
         )
         stats.total_missed = sum(
-            1 for log in profile.logs
+            1
+            for log in profile.logs
             if log.taken_at >= cutoff and log.action == LogAction.MISSED
         )
         stats.total_skipped = sum(
-            1 for log in profile.logs
+            1
+            for log in profile.logs
             if log.taken_at >= cutoff and log.action == LogAction.SKIPPED
         )
 
         # Calculate streak
         stats.current_streak = self._calculate_current_streak(profile)
-        if stats.current_streak > stats.longest_streak:
-            stats.longest_streak = stats.current_streak
+        stats.longest_streak = max(stats.longest_streak, stats.current_streak)
 
         # Find most missed slot
         stats.most_missed_slot = self._find_most_missed_slot(profile)
@@ -918,11 +929,11 @@ class MedicationService:
 
         today = self._get_now().date()
         streak = 0
-        current_date = today
 
         # Group logs by date and check if all scheduled meds were taken
         scheduled_meds = [
-            med for med in profile.medications.values()
+            med
+            for med in profile.medications.values()
             if med.schedule.kind != ScheduleKind.AS_NEEDED and med.is_active
         ]
 
@@ -932,13 +943,15 @@ class MedicationService:
         for days_back in range(365):  # Max 1 year
             check_date = today - timedelta(days=days_back)
             logs_for_date = [
-                log for log in profile.logs
-                if log.taken_at.date() == check_date
-                and log.action == LogAction.TAKEN
+                log
+                for log in profile.logs
+                if log.taken_at.date() == check_date and log.action == LogAction.TAKEN
             ]
 
             # Check if all scheduled meds have at least one taken log
-            med_ids_taken = {log.medication_id for log in logs_for_date if log.medication_id}
+            med_ids_taken = {
+                log.medication_id for log in logs_for_date if log.medication_id
+            }
 
             # Simplified check: if any medication was taken, count the day
             # A more sophisticated version would check against expected doses
@@ -954,7 +967,8 @@ class MedicationService:
         from collections import Counter
 
         missed_slots = [
-            log.slot_key for log in profile.logs
+            log.slot_key
+            for log in profile.logs
             if log.action == LogAction.MISSED and log.slot_key
         ]
 
@@ -969,7 +983,8 @@ class MedicationService:
         from collections import Counter
 
         missed_meds = [
-            log.medication_id for log in profile.logs
+            log.medication_id
+            for log in profile.logs
             if log.action == LogAction.MISSED and log.medication_id
         ]
 

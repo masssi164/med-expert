@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -10,22 +10,18 @@ import pytest
 from custom_components.med_expert.application.services import (
     AddMedicationCommand,
     MedicationService,
-    PRNTakeCommand,
     RefillCommand,
     ReplaceInhalerCommand,
     TakeCommand,
     UpdateMedicationCommand,
     UpdateNotificationSettingsCommand,
-    InventoryError,
 )
 from custom_components.med_expert.domain.models import (
     DosageForm,
     DosageFormInfo,
-    Inventory,
-    InjectionSite,
     InhalerTracking,
-    LogAction,
-    MedicationStatus,
+    InjectionSite,
+    Inventory,
     NotificationSettings,
     Profile,
     ScheduleKind,
@@ -292,9 +288,7 @@ class TestInhalerTracking:
         assert tracking.remaining_puffs == 15
         assert tracking.is_low()  # < 20 puffs
 
-    def test_replace_inhaler(
-        self, service: MedicationService, profile: Profile
-    ):
+    def test_replace_inhaler(self, service: MedicationService, profile: Profile):
         """Test replacing an inhaler."""
         command = AddMedicationCommand(
             display_name="Ventolin",
@@ -351,9 +345,7 @@ class TestNotificationSettings:
 class TestAdherenceStats:
     """Tests for adherence statistics."""
 
-    def test_calculate_adherence(
-        self, service: MedicationService, profile: Profile
-    ):
+    def test_calculate_adherence(self, service: MedicationService, profile: Profile):
         """Test adherence calculation."""
         # Add a medication
         command = AddMedicationCommand(
@@ -377,9 +369,7 @@ class TestAdherenceStats:
         assert profile.adherence_stats is not None
         assert profile.adherence_stats.total_taken == 5
 
-    def test_streak_tracking(
-        self, service: MedicationService, profile: Profile
-    ):
+    def test_streak_tracking(self, service: MedicationService, profile: Profile):
         """Test streak tracking."""
         command = AddMedicationCommand(
             display_name="Aspirin",

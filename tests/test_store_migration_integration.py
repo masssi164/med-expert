@@ -2,25 +2,23 @@
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from pathlib import Path
-import json
-import tempfile
 
-from custom_components.med_expert.store import ProfileStore, ProfileRepository
+import pytest
+
+from custom_components.med_expert.store import ProfileRepository, ProfileStore
 
 
 @pytest.mark.asyncio
 async def test_store_migration_with_legacy_file():
     """
     Test that the ProfileStore can load and migrate legacy storage files.
-    
+
     This simulates what happens when Home Assistant loads a storage file
     that was created with an older version of the integration.
     """
     hass = MagicMock()
-    
+
     # Create legacy v0 data (just the data portion, not the wrapper)
     legacy_data = {
         "schema_version": 0,
@@ -59,42 +57,44 @@ async def test_store_migration_with_legacy_file():
             },
         },
     }
-    
+
     # Mock the Store.async_load to return our legacy data
     with patch("custom_components.med_expert.store.Store") as MockStore:
         mock_store_instance = MagicMock()
         mock_store_instance.async_load = AsyncMock(return_value=legacy_data)
         MockStore.return_value = mock_store_instance
-        
+
         # Create ProfileStore and load data - migration happens in async_load
         store = ProfileStore(hass)
         profiles = await store.async_load()
-        
+
         # Verify Store was called without async_migrate_func
         call_kwargs = MockStore.call_args.kwargs
         assert "async_migrate_func" not in call_kwargs
         assert call_kwargs.get("minor_version") == 1
-        
+
         # Verify migration was successful - check the internal data
         migrated_data = store._data
         assert migrated_data["schema_version"] == 2
-        
+
         # Check medication was migrated
-        med = migrated_data["profiles"]["test-profile-123"]["medications"]["med-aspirin"]
+        med = migrated_data["profiles"]["test-profile-123"]["medications"][
+            "med-aspirin"
+        ]
         assert "dose" not in med  # Old field removed
         assert "default_dose" in med["schedule"]  # Moved to schedule
-        
+
         # Check dose value was converted correctly (1.5 -> 3/2)
         dose = med["schedule"]["default_dose"]
         assert dose["numerator"] == 6
         assert dose["denominator"] == 4
         assert dose["unit"] == "tablet"
-        
+
         # Check v2 fields were added
         assert med["form"] == "tablet"
         assert med["inventory"] is None
         assert med["is_active"] is True
-        
+
         # Check log was migrated
         log = migrated_data["profiles"]["test-profile-123"]["logs"][0]
         assert "dose" in log  # Dose was added
@@ -106,7 +106,7 @@ async def test_store_migration_with_legacy_file():
 async def test_store_migration_v1_to_v2():
     """Test migration from v1 to v2 schema."""
     hass = MagicMock()
-    
+
     v1_data = {
         "schema_version": 1,
         "profiles": {
@@ -140,25 +140,25 @@ async def test_store_migration_v1_to_v2():
             },
         },
     }
-    
+
     with patch("custom_components.med_expert.store.Store") as MockStore:
         mock_store_instance = MagicMock()
         mock_store_instance.async_load = AsyncMock(return_value=v1_data)
         MockStore.return_value = mock_store_instance
-        
+
         store = ProfileStore(hass)
         profiles = await store.async_load()
-        
+
         # Get the migrated data
         migrated_data = store._data
-        
+
         # Check v2 fields were added
         profile = migrated_data["profiles"]["profile-xyz"]
         assert profile["notification_settings"] is None
         assert profile["adherence_stats"] is None
         assert profile["owner_name"] is None
         assert profile["avatar"] is None
-        
+
         med = profile["medications"]["med-insulin"]
         assert med["form"] == "tablet"
         assert med["default_unit"] is None
@@ -174,7 +174,7 @@ async def test_store_migration_v1_to_v2():
 async def test_repository_load_with_migration():
     """Test that ProfileRepository correctly loads and migrates data."""
     hass = MagicMock()
-    
+
     # Mock legacy data
     legacy_data = {
         "schema_version": 0,
@@ -188,19 +188,19 @@ async def test_repository_load_with_migration():
             },
         },
     }
-    
+
     with patch("custom_components.med_expert.store.Store") as MockStore:
         mock_store_instance = MagicMock()
         mock_store_instance.async_load = AsyncMock(return_value=legacy_data)
         MockStore.return_value = mock_store_instance
-        
+
         # Create repository and load
         store = ProfileStore(hass)
         repository = ProfileRepository(store)
-        
+
         # This should not raise errors - migration happens in ProfileStore.async_load
         await repository.async_load()
-        
+
         # Verify profile was loaded
         assert repository.get("prof-1") is not None
         assert repository.get("prof-1").name == "Test"
@@ -210,23 +210,23 @@ async def test_repository_load_with_migration():
 async def test_no_migration_needed_for_current_version():
     """Test that no migration is performed when data is already current."""
     hass = MagicMock()
-    
+
     current_data = {
         "schema_version": 2,  # Current version
         "profiles": {},
     }
-    
+
     with patch("custom_components.med_expert.store.Store") as MockStore:
         mock_store_instance = MagicMock()
         mock_store_instance.async_load = AsyncMock(return_value=current_data)
         MockStore.return_value = mock_store_instance
-        
+
         store = ProfileStore(hass)
         profiles = await store.async_load()
-        
+
         # Get the data after loading
         result = store._data
-        
+
         # Migration should return data unchanged
         assert result["schema_version"] == 2
         assert result["profiles"] == {}

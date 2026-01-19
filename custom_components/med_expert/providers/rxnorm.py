@@ -53,12 +53,9 @@ class RxNormProvider(MedicationProvider):
 
         """
         msg = (
-            "RxNorm provider is not yet implemented. "
-            "Use the 'manual' provider for now."
+            "RxNorm provider is not yet implemented. Use the 'manual' provider for now."
         )
-        raise NotImplementedError(
-            msg
-        )
+        raise NotImplementedError(msg)
 
     async def resolve(
         self,
@@ -80,9 +77,6 @@ class RxNormProvider(MedicationProvider):
 
         """
         msg = (
-            "RxNorm provider is not yet implemented. "
-            "Use the 'manual' provider for now."
+            "RxNorm provider is not yet implemented. Use the 'manual' provider for now."
         )
-        raise NotImplementedError(
-            msg
-        )
+        raise NotImplementedError(msg)
