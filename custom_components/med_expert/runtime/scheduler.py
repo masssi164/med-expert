@@ -69,7 +69,9 @@ class MedicationScheduler:
         self._profile = profile
         self._on_due = on_due
         self._on_missed = on_missed
-        self._scheduled: dict[str, CALLBACK_TYPE] = {}  # medication_id -> cancel callback
+        self._scheduled: dict[
+            str, CALLBACK_TYPE
+        ] = {}  # medication_id -> cancel callback
         self._repeat_scheduled: dict[str, CALLBACK_TYPE] = {}
 
     def schedule_all(self) -> None:
@@ -101,7 +103,10 @@ class MedicationScheduler:
 
         # If we have a computed next_due in state, use that
         if medication.state.next_due:
-            if medication.state.status == MedicationStatus.SNOOZED and medication.state.snooze_until:
+            if (
+                medication.state.status == MedicationStatus.SNOOZED
+                and medication.state.snooze_until
+            ):
                 effective_due = medication.state.snooze_until
             else:
                 effective_due = medication.state.next_due
@@ -129,9 +134,7 @@ class MedicationScheduler:
         @callback
         def _trigger(now: datetime) -> None:
             """Handle the due trigger."""
-            self._hass.async_create_task(
-                self._handle_due(medication.medication_id)
-            )
+            self._hass.async_create_task(self._handle_due(medication.medication_id))
 
         cancel = async_track_point_in_time(
             self._hass,
@@ -204,9 +207,7 @@ class MedicationScheduler:
         @callback
         def _repeat_trigger(now: datetime) -> None:
             """Handle repeat notification."""
-            self._hass.async_create_task(
-                self._handle_repeat(medication.medication_id)
-            )
+            self._hass.async_create_task(self._handle_repeat(medication.medication_id))
 
         # Cancel any existing repeat
         if medication.medication_id in self._repeat_scheduled:
@@ -232,7 +233,10 @@ class MedicationScheduler:
             return
 
         # Check if still due (not taken)
-        if medication.state.status not in (MedicationStatus.DUE, MedicationStatus.SNOOZED):
+        if medication.state.status not in (
+            MedicationStatus.DUE,
+            MedicationStatus.SNOOZED,
+        ):
             return
 
         now = datetime.now(ZoneInfo(self._profile.timezone))
@@ -260,7 +264,9 @@ class MedicationScheduler:
         if medication.state.next_due is None:
             return
 
-        grace_end = medication.state.next_due + timedelta(minutes=medication.policy.grace_minutes)
+        grace_end = medication.state.next_due + timedelta(
+            minutes=medication.policy.grace_minutes
+        )
         now = datetime.now(ZoneInfo(self._profile.timezone))
 
         if grace_end <= now:
@@ -320,9 +326,7 @@ class MedicationScheduler:
 
         @callback
         def _trigger(now: datetime) -> None:
-            self._hass.async_create_task(
-                self._handle_due(medication.medication_id)
-            )
+            self._hass.async_create_task(self._handle_due(medication.medication_id))
 
         cancel = async_track_point_in_time(
             self._hass,

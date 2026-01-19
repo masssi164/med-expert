@@ -4,15 +4,9 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
+
 import pytest
 
-from custom_components.med_expert.domain.models import (
-    DoseQuantity,
-    LogAction,
-    MedicationStatus,
-    Profile,
-    ScheduleKind,
-)
 from custom_components.med_expert.application.services import (
     AddMedicationCommand,
     MedicationNotFoundError,
@@ -23,6 +17,12 @@ from custom_components.med_expert.application.services import (
     TakeCommand,
     UpdateMedicationCommand,
     ValidationError,
+)
+from custom_components.med_expert.domain.models import (
+    LogAction,
+    MedicationStatus,
+    Profile,
+    ScheduleKind,
 )
 
 
@@ -94,9 +94,7 @@ class TestAddMedication:
         assert medication.schedule.interval_minutes == 480
         assert medication.schedule.default_dose.format() == "1 capsule"
 
-    def test_add_weekly_medication(
-        self, service: MedicationService, profile: Profile
-    ):
+    def test_add_weekly_medication(self, service: MedicationService, profile: Profile):
         """Test adding a weekly medication."""
         command = AddMedicationCommand(
             display_name="Weekly Vitamin",
@@ -111,9 +109,7 @@ class TestAddMedication:
         assert medication.schedule.kind == ScheduleKind.WEEKLY
         assert medication.schedule.weekdays == [0, 3]
 
-    def test_add_prn_medication(
-        self, service: MedicationService, profile: Profile
-    ):
+    def test_add_prn_medication(self, service: MedicationService, profile: Profile):
         """Test adding a PRN (as-needed) medication."""
         command = AddMedicationCommand(
             display_name="Pain Reliever",
@@ -159,6 +155,7 @@ class TestAddMedication:
 
         # ID should be a valid UUID
         import uuid
+
         uuid.UUID(medication.medication_id)  # Should not raise
 
     def test_add_medication_validates_times(
@@ -259,9 +256,7 @@ class TestTakeMedication:
         assert medication.state.last_taken == fixed_now
         assert medication.state.snooze_until is None
 
-    def test_take_not_found(
-        self, service: MedicationService, profile: Profile
-    ):
+    def test_take_not_found(self, service: MedicationService, profile: Profile):
         """Test take with non-existent medication."""
         with pytest.raises(MedicationNotFoundError):
             service.take(
@@ -296,9 +291,7 @@ class TestPRNTake:
         assert log.scheduled_for is None
         assert log.dose.format() == "1 tablet"
 
-    def test_prn_take_with_note(
-        self, service: MedicationService, profile: Profile
-    ):
+    def test_prn_take_with_note(self, service: MedicationService, profile: Profile):
         """Test PRN take with note."""
         command = AddMedicationCommand(
             display_name="Pain Reliever",
@@ -414,9 +407,7 @@ class TestSnooze:
         expected = fixed_now + timedelta(minutes=20)
         assert snooze_until == expected
 
-    def test_snooze_creates_log(
-        self, service: MedicationService, profile: Profile
-    ):
+    def test_snooze_creates_log(self, service: MedicationService, profile: Profile):
         """Test that snooze creates a log record."""
         command = AddMedicationCommand(
             display_name="Aspirin",
@@ -506,9 +497,7 @@ class TestSkip:
 class TestUpdateMedication:
     """Tests for updating medications."""
 
-    def test_update_display_name(
-        self, service: MedicationService, profile: Profile
-    ):
+    def test_update_display_name(self, service: MedicationService, profile: Profile):
         """Test updating medication display name."""
         command = AddMedicationCommand(
             display_name="Aspirin",
@@ -529,9 +518,7 @@ class TestUpdateMedication:
         assert medication.display_name == "Aspirin 100mg"
         assert medication.ref.display_name == "Aspirin 100mg"
 
-    def test_update_not_found(
-        self, service: MedicationService, profile: Profile
-    ):
+    def test_update_not_found(self, service: MedicationService, profile: Profile):
         """Test update with non-existent medication."""
         with pytest.raises(MedicationNotFoundError):
             service.update_medication(
@@ -546,9 +533,7 @@ class TestUpdateMedication:
 class TestRemoveMedication:
     """Tests for removing medications."""
 
-    def test_remove_medication(
-        self, service: MedicationService, profile: Profile
-    ):
+    def test_remove_medication(self, service: MedicationService, profile: Profile):
         """Test removing a medication."""
         command = AddMedicationCommand(
             display_name="Aspirin",

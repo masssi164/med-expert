@@ -1,4 +1,5 @@
-"""Tests for the schedule engine.
+"""
+Tests for the schedule engine.
 
 Tests cover:
 - times_per_day with slot-specific doses
@@ -10,8 +11,9 @@ Tests cover:
 - DST transitions (spring forward, fall back)
 """
 
-from datetime import datetime, timedelta, date, time
+from datetime import date, datetime
 from zoneinfo import ZoneInfo
+
 import pytest
 
 from custom_components.med_expert.domain.models import (
@@ -22,8 +24,8 @@ from custom_components.med_expert.domain.models import (
     ScheduleSpec,
 )
 from custom_components.med_expert.domain.schedule import (
-    compute_next_occurrence,
     compute_effective_next_due,
+    compute_next_occurrence,
     is_in_quiet_hours,
 )
 
@@ -211,9 +213,7 @@ class TestTimesPerDaySchedule:
         assert occurrence is not None
         assert status == MedicationStatus.DUE
 
-    def test_missed_after_grace(
-        self, utc_tz: str, tablet_dose: DoseQuantity
-    ):
+    def test_missed_after_grace(self, utc_tz: str, tablet_dose: DoseQuantity):
         """Test that status is MISSED after grace period."""
         policy = ReminderPolicy(grace_minutes=30)
         schedule = ScheduleSpec(
@@ -236,9 +236,7 @@ class TestTimesPerDaySchedule:
         assert occurrence is not None
         assert status == MedicationStatus.MISSED
 
-    def test_slot_specific_doses(
-        self, utc_tz: str, default_policy: ReminderPolicy
-    ):
+    def test_slot_specific_doses(self, utc_tz: str, default_policy: ReminderPolicy):
         """Test that each slot can have different dose."""
         schedule = ScheduleSpec(
             kind=ScheduleKind.TIMES_PER_DAY,
@@ -368,9 +366,7 @@ class TestWeeklySchedule:
         assert occurrence.scheduled_for.hour == 9
         assert status == MedicationStatus.OK
 
-    def test_weekly_slot_doses(
-        self, utc_tz: str, default_policy: ReminderPolicy
-    ):
+    def test_weekly_slot_doses(self, utc_tz: str, default_policy: ReminderPolicy):
         """Test weekly schedule with day-specific doses."""
         schedule = ScheduleSpec(
             kind=ScheduleKind.WEEKLY,
@@ -562,7 +558,8 @@ class TestDST:
     def test_spring_forward(
         self, berlin_tz: str, default_policy: ReminderPolicy, tablet_dose: DoseQuantity
     ):
-        """Test schedule during spring forward (clocks skip 2:00-3:00 AM).
+        """
+        Test schedule during spring forward (clocks skip 2:00-3:00 AM).
 
         In Germany 2025, spring forward is on March 30 at 2:00 AM.
         """
@@ -593,7 +590,8 @@ class TestDST:
     def test_fall_back(
         self, berlin_tz: str, default_policy: ReminderPolicy, tablet_dose: DoseQuantity
     ):
-        """Test schedule during fall back (clocks repeat 2:00-3:00 AM).
+        """
+        Test schedule during fall back (clocks repeat 2:00-3:00 AM).
 
         In Germany 2025, fall back is on October 26 at 3:00 AM.
         """

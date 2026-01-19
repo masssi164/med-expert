@@ -8,11 +8,12 @@ Handles notification grouping and user-configurable notification targets.
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.persistent_notification import (
     async_create as async_create_persistent,
+)
+from homeassistant.components.persistent_notification import (
     async_dismiss as async_dismiss_persistent,
 )
 
@@ -20,12 +21,10 @@ from custom_components.med_expert.const import (
     NOTIFICATION_ACTION_SKIP,
     NOTIFICATION_ACTION_SNOOZE,
     NOTIFICATION_ACTION_TAKEN,
-    NOTIFICATION_CATEGORY_MEDICATION,
     NOTIFICATION_TAG_PREFIX,
 )
 from custom_components.med_expert.domain.models import (
     Medication,
-    NotificationSettings,
     Profile,
 )
 
@@ -199,7 +198,9 @@ class NotificationManager:
         # Build notification data
         data: dict[str, Any] = {
             "tag": tag,
-            "group": f"med_expert_{profile.profile_id}" if settings.group_notifications else None,
+            "group": f"med_expert_{profile.profile_id}"
+            if settings.group_notifications
+            else None,
             "data": {
                 "tag": tag,
                 "persistent": True,
@@ -223,12 +224,16 @@ class NotificationManager:
         if is_missed and settings.missed_template:
             message = settings.missed_template.format(
                 medication=medication.display_name,
-                dose=medication.state.next_dose.format() if medication.state.next_dose else "",
+                dose=medication.state.next_dose.format()
+                if medication.state.next_dose
+                else "",
             )
         elif not is_missed and settings.reminder_template:
             message = settings.reminder_template.format(
                 medication=medication.display_name,
-                dose=medication.state.next_dose.format() if medication.state.next_dose else "",
+                dose=medication.state.next_dose.format()
+                if medication.state.next_dose
+                else "",
             )
 
         # Determine notify target
@@ -300,11 +305,13 @@ class NotificationManager:
 
         # Only show skip for non-missed notifications
         if not is_missed:
-            actions.append({
-                "action": NOTIFICATION_ACTION_SKIP,
-                "title": "⏭ Skip",
-                "uri": None,
-            })
+            actions.append(
+                {
+                    "action": NOTIFICATION_ACTION_SKIP,
+                    "title": "⏭ Skip",
+                    "uri": None,
+                }
+            )
 
         return actions
 

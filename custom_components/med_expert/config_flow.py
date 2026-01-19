@@ -37,7 +37,9 @@ class MedExpertFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
             if not errors:
                 # Create unique ID from profile name
-                await self.async_set_unique_id(f"med_expert_{profile_name.lower().replace(' ', '_')}")
+                await self.async_set_unique_id(
+                    f"med_expert_{profile_name.lower().replace(' ', '_')}"
+                )
                 self._abort_if_unique_id_configured()
 
                 return self.async_create_entry(

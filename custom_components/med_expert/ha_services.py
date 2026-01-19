@@ -87,14 +87,30 @@ ATTR_INTERACTION_WARNINGS = "interaction_warnings"
 
 # Valid dosage forms
 VALID_FORMS = [
-    "tablet", "capsule", "injection", "nasal_spray", "inhaler",
-    "drops", "cream", "patch", "suppository", "liquid", "powder", "other"
+    "tablet",
+    "capsule",
+    "injection",
+    "nasal_spray",
+    "inhaler",
+    "drops",
+    "cream",
+    "patch",
+    "suppository",
+    "liquid",
+    "powder",
+    "other",
 ]
 
 # Valid injection sites
 VALID_INJECTION_SITES = [
-    "left_arm", "right_arm", "left_thigh", "right_thigh",
-    "abdomen_left", "abdomen_right", "left_buttock", "right_buttock"
+    "left_arm",
+    "right_arm",
+    "left_thigh",
+    "right_thigh",
+    "abdomen_left",
+    "abdomen_right",
+    "left_buttock",
+    "right_buttock",
 ]
 
 # Service schemas

@@ -56,9 +56,7 @@ class OpenFDAProvider(MedicationProvider):
             "OpenFDA provider is not yet implemented. "
             "Use the 'manual' provider for now."
         )
-        raise NotImplementedError(
-            msg
-        )
+        raise NotImplementedError(msg)
 
     async def resolve(
         self,
@@ -83,6 +81,4 @@ class OpenFDAProvider(MedicationProvider):
             "OpenFDA provider is not yet implemented. "
             "Use the 'manual' provider for now."
         )
-        raise NotImplementedError(
-            msg
-        )
+        raise NotImplementedError(msg)

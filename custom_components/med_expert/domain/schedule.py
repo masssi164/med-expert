@@ -219,7 +219,11 @@ def _compute_interval_occurrence(
     if last_taken:
         anchor = last_taken.astimezone(tz)
     elif schedule.anchor:
-        anchor = schedule.anchor.astimezone(tz) if schedule.anchor.tzinfo else schedule.anchor.replace(tzinfo=tz)
+        anchor = (
+            schedule.anchor.astimezone(tz)
+            if schedule.anchor.tzinfo
+            else schedule.anchor.replace(tzinfo=tz)
+        )
     else:
         # No anchor - use start of today
         now_local = now.astimezone(tz)
@@ -389,10 +393,10 @@ def compute_effective_next_due(
 
 
 # Re-export is_in_quiet_hours from policies for backwards compatibility
-from .policies import is_in_quiet_hours  # noqa: E402, F401
+from .policies import is_in_quiet_hours  # noqa: E402
 
 __all__ = [
-    "compute_next_occurrence",
     "compute_effective_next_due",
+    "compute_next_occurrence",
     "is_in_quiet_hours",
 ]
