@@ -268,10 +268,7 @@ class ProfileStore:
                     elif isinstance(old_dose, (int, float)):
                         # Legacy: just a number, assume 1 tablet
                         is_integer = old_dose == int(old_dose)
-                        numerator = (
-                            int(old_dose) if is_integer
-                            else int(old_dose * 4)
-                        )
+                        numerator = int(old_dose) if is_integer else int(old_dose * 4)
                         denominator = 1 if is_integer else 4
                         schedule["default_dose"] = {
                             "numerator": numerator,
@@ -285,8 +282,7 @@ class ProfileStore:
                         if isinstance(slot_dose, (int, float)):
                             is_integer = slot_dose == int(slot_dose)
                             numerator = (
-                                int(slot_dose) if is_integer
-                                else int(slot_dose * 4)
+                                int(slot_dose) if is_integer else int(slot_dose * 4)
                             )
                             denominator = 1 if is_integer else 4
                             schedule["slot_doses"][slot_key] = {

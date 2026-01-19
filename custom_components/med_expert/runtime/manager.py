@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo
 
-from homeassistant.core import Event, callback
+from homeassistant.core import Event
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from custom_components.med_expert.application.services import (
@@ -305,7 +305,9 @@ class ProfileManager:
                 self._scheduler.reschedule_medication(medication)
 
             # Dismiss notification
-            await self._notification_manager.async_dismiss_notification(command.medication_id)
+            await self._notification_manager.async_dismiss_notification(
+                command.medication_id
+            )
 
             # Signal update
             self._signal_medication_updated(command.medication_id)
@@ -363,7 +365,9 @@ class ProfileManager:
                 self._scheduler.reschedule_medication(medication)
 
             # Dismiss notification
-            await self._notification_manager.async_dismiss_notification(command.medication_id)
+            await self._notification_manager.async_dismiss_notification(
+                command.medication_id
+            )
 
             # Signal update
             self._signal_medication_updated(command.medication_id)
@@ -393,7 +397,9 @@ class ProfileManager:
                 self._scheduler.reschedule_medication(medication)
 
             # Dismiss notification
-            await self._notification_manager.async_dismiss_notification(command.medication_id)
+            await self._notification_manager.async_dismiss_notification(
+                command.medication_id
+            )
 
             # Signal update
             self._signal_medication_updated(command.medication_id)
@@ -490,7 +496,7 @@ class ProfileManager:
 
         # Extract entry_id and medication_id from tag
         # Tag format: med_expert_{entry_id}_{medication_id}
-        parts = tag[len(NOTIFICATION_TAG_PREFIX):].split("_", 1)
+        parts = tag[len(NOTIFICATION_TAG_PREFIX) :].split("_", 1)
         if len(parts) < 2:
             return
 
@@ -501,7 +507,9 @@ class ProfileManager:
 
         medication = self._profile.get_medication(medication_id)
         if medication is None:
-            _LOGGER.warning("Notification action for unknown medication: %s", medication_id)
+            _LOGGER.warning(
+                "Notification action for unknown medication: %s", medication_id
+            )
             return
 
         _LOGGER.info(
@@ -562,6 +570,7 @@ class ProfileManager:
 
         # Use service to update (would need to add this method, or update directly)
         from datetime import date
+
         from custom_components.med_expert.domain.models import Inventory
 
         if medication.inventory is None:
@@ -577,7 +586,9 @@ class ProfileManager:
         if command.auto_decrement is not None:
             inv.auto_decrement = command.auto_decrement
         if command.expiry_date is not None:
-            inv.expiry_date = date.fromisoformat(command.expiry_date) if command.expiry_date else None
+            inv.expiry_date = (
+                date.fromisoformat(command.expiry_date) if command.expiry_date else None
+            )
         if command.pharmacy_name is not None:
             inv.pharmacy_name = command.pharmacy_name
         if command.pharmacy_phone is not None:

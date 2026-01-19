@@ -15,7 +15,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
 from .const import DOMAIN
-from .domain.models import Medication, MedicationStatus, DosageFormInfo
+from .domain.models import DosageFormInfo, Medication, MedicationStatus
 from .runtime.manager import SIGNAL_MEDICATION_UPDATED, SIGNAL_MEDICATIONS_CHANGED
 
 if TYPE_CHECKING:
@@ -101,7 +101,9 @@ class MedicationBaseSensor(SensorEntity):
         self._sensor_type = sensor_type
 
         # Entity IDs
-        self._attr_unique_id = f"{entry.entry_id}_{medication.medication_id}_{sensor_type}"
+        self._attr_unique_id = (
+            f"{entry.entry_id}_{medication.medication_id}_{sensor_type}"
+        )
 
         # Device info - group all entities for same medication
         self._attr_device_info = DeviceInfo(
@@ -427,27 +429,29 @@ class ProfileAdherenceSensor(SensorEntity):
     def extra_state_attributes(self) -> dict:
         """Return extra state attributes."""
         profile = self._manager.profile
-        
+
         # Always include entry_id and profile_name
         attrs = {
             "entry_id": self._entry.entry_id,
             "profile_name": profile.name,
         }
-        
+
         if profile.adherence_stats is None:
             return attrs
 
         stats = profile.adherence_stats
-        attrs.update({
-            "daily_rate": round(stats.daily_rate, 1),
-            "weekly_rate": round(stats.weekly_rate, 1),
-            "monthly_rate": round(stats.monthly_rate, 1),
-            "current_streak": stats.current_streak,
-            "longest_streak": stats.longest_streak,
-            "total_taken": stats.total_taken,
-            "total_missed": stats.total_missed,
-            "total_skipped": stats.total_skipped,
-        })
+        attrs.update(
+            {
+                "daily_rate": round(stats.daily_rate, 1),
+                "weekly_rate": round(stats.weekly_rate, 1),
+                "monthly_rate": round(stats.monthly_rate, 1),
+                "current_streak": stats.current_streak,
+                "longest_streak": stats.longest_streak,
+                "total_taken": stats.total_taken,
+                "total_missed": stats.total_missed,
+                "total_skipped": stats.total_skipped,
+            }
+        )
 
         if stats.most_missed_slot:
             attrs["most_missed_slot"] = stats.most_missed_slot

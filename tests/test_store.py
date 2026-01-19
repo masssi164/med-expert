@@ -2,21 +2,20 @@
 
 from __future__ import annotations
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
+from unittest.mock import MagicMock
 from zoneinfo import ZoneInfo
+
+import pytest
 
 from custom_components.med_expert.domain.models import (
     DoseQuantity,
     LogAction,
     LogRecord,
     Medication,
-    MedicationRef,
     MedicationState,
     MedicationStatus,
     Profile,
-    ReminderPolicy,
     ScheduleKind,
     ScheduleSpec,
 )
@@ -112,7 +111,10 @@ class TestProfileSerialization:
                 "20:00": DoseQuantity.normalize(1, 2, "tablet"),
             },
         )
-        assert ScheduleSpec.from_dict(tpd_schedule.to_dict()).kind == ScheduleKind.TIMES_PER_DAY
+        assert (
+            ScheduleSpec.from_dict(tpd_schedule.to_dict()).kind
+            == ScheduleKind.TIMES_PER_DAY
+        )
 
         # interval
         interval_schedule = ScheduleSpec(
@@ -329,7 +331,11 @@ class TestMigrations:
                             "schedule": {
                                 "kind": "times_per_day",
                                 "times": ["08:00"],
-                                "default_dose": {"numerator": 1, "denominator": 1, "unit": "tablet"},
+                                "default_dose": {
+                                    "numerator": 1,
+                                    "denominator": 1,
+                                    "unit": "tablet",
+                                },
                             },
                             "policy": {},
                             "state": {},
@@ -340,7 +346,11 @@ class TestMigrations:
                             "action": "taken",
                             "taken_at": "2025-01-15T08:00:00+00:00",
                             "scheduled_for": "2025-01-15T08:00:00+00:00",
-                            "dose": {"numerator": 1, "denominator": 1, "unit": "tablet"},
+                            "dose": {
+                                "numerator": 1,
+                                "denominator": 1,
+                                "unit": "tablet",
+                            },
                         },
                     ],
                 },
@@ -375,7 +385,10 @@ class TestMigrations:
 
     def test_current_version_no_migration(self):
         """Test that current version data is not modified."""
-        from custom_components.med_expert.store import ProfileStore, CURRENT_SCHEMA_VERSION
+        from custom_components.med_expert.store import (
+            CURRENT_SCHEMA_VERSION,
+            ProfileStore,
+        )
 
         hass = MagicMock()
         store = ProfileStore(hass)
@@ -400,7 +413,7 @@ class TestMigrations:
     @pytest.mark.asyncio
     async def test_async_migrate_wrapper(self):
         """Test the _async_migrate function."""
-        from custom_components.med_expert.store import ProfileStore, STORE_VERSION
+        from custom_components.med_expert.store import ProfileStore
 
         hass = MagicMock()
         store = ProfileStore(hass)
