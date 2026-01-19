@@ -460,6 +460,113 @@ class TestMigrations:
         assert med["inventory"] is None  # v2 field
         assert migrated["schema_version"] == 2
 
+    @pytest.mark.asyncio
+    async def test_async_migrator_callback(self):
+        """Test the _async_migrator callback that HA Store calls."""
+        from custom_components.med_expert.store import ProfileStore
+
+        hass = MagicMock()
+        store = ProfileStore(hass)
+
+        # Test with v0 data - this simulates what HA Store will call
+        legacy_data = {
+            "schema_version": 0,
+            "profiles": {
+                "profile-1": {
+                    "profile_id": "profile-1",
+                    "name": "Test",
+                    "timezone": "UTC",
+                    "medications": {
+                        "med-1": {
+                            "medication_id": "med-1",
+                            "display_name": "Aspirin",
+                            "ref": {
+                                "provider": "manual",
+                                "external_id": "med-1",
+                                "display_name": "Aspirin",
+                            },
+                            "dose": 1,
+                            "schedule": {
+                                "kind": "times_per_day",
+                                "times": ["08:00"],
+                            },
+                            "policy": {},
+                            "state": {},
+                        },
+                    },
+                    "logs": [],
+                },
+            },
+        }
+
+        # Call the async migrator callback (this is what HA Store calls)
+        migrated = await store._async_migrator(0, 0, legacy_data)
+
+        # Verify migration was applied correctly
+        med = migrated["profiles"]["profile-1"]["medications"]["med-1"]
+        assert "dose" not in med
+        assert "default_dose" in med["schedule"]
+        assert med["form"] == "tablet"  # v2 field
+        assert med["inventory"] is None  # v2 field
+        assert migrated["schema_version"] == 2
+
+    @pytest.mark.asyncio
+    async def test_async_migrator_callback_v1_to_v2(self):
+        """Test the _async_migrator callback for v1 to v2 migration."""
+        from custom_components.med_expert.store import ProfileStore
+
+        hass = MagicMock()
+        store = ProfileStore(hass)
+
+        # Test with v1 data
+        v1_data = {
+            "schema_version": 1,
+            "profiles": {
+                "profile-1": {
+                    "profile_id": "profile-1",
+                    "name": "Test",
+                    "timezone": "UTC",
+                    "medications": {
+                        "med-1": {
+                            "medication_id": "med-1",
+                            "display_name": "Aspirin",
+                            "ref": {
+                                "provider": "manual",
+                                "external_id": "med-1",
+                                "display_name": "Aspirin",
+                            },
+                            "schedule": {
+                                "kind": "times_per_day",
+                                "times": ["08:00"],
+                                "default_dose": {
+                                    "numerator": 1,
+                                    "denominator": 1,
+                                    "unit": "tablet",
+                                },
+                            },
+                            "policy": {},
+                            "state": {},
+                        },
+                    },
+                    "logs": [],
+                },
+            },
+        }
+
+        # Call the async migrator callback with v1 data
+        migrated = await store._async_migrator(1, 0, v1_data)
+
+        # Verify v2 fields were added
+        profile = migrated["profiles"]["profile-1"]
+        med = profile["medications"]["med-1"]
+        
+        assert med["form"] == "tablet"
+        assert med["inventory"] is None
+        assert profile["notification_settings"] is None
+        assert profile["adherence_stats"] is None
+        assert migrated["schema_version"] == 2
+
+
 
 class TestProfileOperations:
     """Tests for Profile model operations."""
