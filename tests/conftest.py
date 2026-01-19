@@ -7,6 +7,7 @@ without requiring the full Home Assistant framework.
 
 from __future__ import annotations
 
+import importlib.util
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -17,12 +18,9 @@ sys.path.insert(0, str(project_root))
 
 # Check if we have pytest-homeassistant-custom-component available
 # If so, don't mock the homeassistant modules as the real ones will be used
-try:
-    import pytest_homeassistant_custom_component
-
-    HAS_HA_FIXTURES = True
-except ImportError:
-    HAS_HA_FIXTURES = False
+HAS_HA_FIXTURES = (
+    importlib.util.find_spec("pytest_homeassistant_custom_component") is not None
+)
 
 # Only mock homeassistant modules if we don't have the real test fixtures
 # This allows domain/service tests to run without HA, but config_flow tests

@@ -908,6 +908,7 @@ class MedicationService:
 
         # Calculate streak
         stats.current_streak = self._calculate_current_streak(profile)
+        # Update longest streak - always maintain the maximum value seen
         stats.longest_streak = max(stats.longest_streak, stats.current_streak)
 
         # Find most missed slot
