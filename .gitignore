@@ -12,6 +12,13 @@ __pycache__
 coverage.xml
 .ruff_cache
 
+# Frontend build artifacts
+frontend/node_modules/
+frontend/dist/
+custom_components/med_expert/www/*.js
+custom_components/med_expert/www/*.js.map
+!custom_components/med_expert/www/.gitkeep
+
 
 # Home Assistant configuration
 config/*

@@ -12,6 +12,7 @@ Med Expert is a Home Assistant custom integration that helps you manage medicati
 
 - 📋 **Multiple Profiles**: Create separate profiles for different people or use cases
 - 💊 **Multiple Medications per Profile**: Manage all medications in one place
+- 🎨 **Frontend Panel**: Beautiful TypeScript-based UI panel for medication management
 - ⏰ **Flexible Schedules**: 
   - `times_per_day`: Specific times (8:00, 12:00, 20:00)
   - `interval`: Every X hours
@@ -346,6 +347,7 @@ Med Expert follows **Domain-Driven Design (DDD)** principles:
 ### Prerequisites
 
 - Python 3.12+
+- Node.js 18+ and npm (for frontend development)
 - Visual Studio Code with Dev Containers extension
 - Docker
 
@@ -355,6 +357,41 @@ Med Expert follows **Domain-Driven Design (DDD)** principles:
 2. Open in VS Code
 3. Click "Reopen in Container" when prompted
 4. Run `scripts/develop` to start Home Assistant
+
+### Frontend Development
+
+The integration includes a TypeScript-based frontend panel. To build the frontend:
+
+```bash
+# Navigate to frontend directory
+cd frontend
+
+# Install dependencies
+npm install
+
+# Build for production
+npm run build
+
+# Or watch for changes during development
+npm run dev
+```
+
+See [frontend/README.md](frontend/README.md) for detailed frontend development instructions.
+
+### Adding the Frontend Panel
+
+To add the Med Expert panel to your Home Assistant sidebar, add this to your `configuration.yaml`:
+
+```yaml
+panel_custom:
+  - name: med-expert-panel
+    sidebar_title: Medications
+    sidebar_icon: mdi:pill
+    url_path: med-expert
+    module_url: /api/med_expert/www/med-expert-panel.js
+```
+
+Then restart Home Assistant.
 
 ### Testing
 
@@ -372,7 +409,11 @@ pytest --cov=custom_components.med_expert tests/
 ### Linting
 
 ```bash
+# Python linting
 scripts/lint
+
+# Frontend linting
+cd frontend && npm run lint
 ```
 
 ### Key Test Cases
