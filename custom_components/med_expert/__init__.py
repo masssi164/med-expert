@@ -7,8 +7,11 @@ Custom integration for medication management in Home Assistant.
 from __future__ import annotations
 
 import logging
+import os
 from typing import TYPE_CHECKING
 
+from homeassistant.components.frontend import async_register_built_in_panel
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.const import Platform
 
 from .const import CONF_PROFILE_NAME, DOMAIN
@@ -29,6 +32,40 @@ PLATFORMS: list[Platform] = [
     Platform.SENSOR,
     Platform.BUTTON,
 ]
+
+
+async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+    """Set up the Med Expert component."""
+    # Register static resources for the panel
+    panel_path = os.path.join(os.path.dirname(__file__), "www", "med-expert-panel.js")
+    
+    await hass.http.async_register_static_paths([
+        StaticPathConfig(
+            url_path="/api/med_expert/panel.js",
+            path=panel_path,
+            cache_headers=False
+        )
+    ])
+    
+    # Register the custom panel in the sidebar
+    async_register_built_in_panel(
+        hass,
+        component_name="custom",
+        sidebar_title="Med Expert",
+        sidebar_icon="mdi:pill",
+        frontend_url_path="med-expert",
+        config={
+            "_panel_custom": {
+                "name": "med-expert-panel",
+                "embed_iframe": False,
+                "trust_external": False,
+                "module_url": "/api/med_expert/panel.js",
+            }
+        },
+        require_admin=False,
+    )
+    
+    return True
 
 
 async def async_setup_entry(
