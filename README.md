@@ -34,6 +34,13 @@ Med Expert is a Home Assistant custom integration that helps you manage medicati
 
 ## What's New in v0.2.0
 
+### Frontend Panel
+A custom TypeScript-based panel for viewing and interacting with medications directly in Home Assistant.
+- View all medications across profiles
+- Take, Snooze, Skip actions with one click
+- Real-time status updates
+- PRN medication logging
+
 ### Dosage Forms with Compatible Units
 Each medication can now have a specific form (tablet, capsule, injection, inhaler, etc.) with form-specific icons and compatible units.
 
@@ -74,6 +81,22 @@ Track remaining puffs in inhalers with low-puff warnings.
 
 1. Copy the `custom_components/med_expert` folder to your Home Assistant's `custom_components` directory
 2. Restart Home Assistant
+
+## Using the Frontend Panel
+
+Med Expert includes a custom panel for easy medication management:
+
+1. After installation, go to the sidebar
+2. Look for **Med Expert** (with pill icon 💊)
+3. Click to open the panel
+4. View all your medications with their current status
+5. Use the action buttons to Take, Snooze, or Skip medications
+
+The panel provides:
+- Real-time medication status
+- Quick action buttons
+- PRN medication logging
+- Multiple profile support
 
 ## Configuration
 
@@ -303,33 +326,45 @@ policy:
 ## Project Structure
 
 ```
-custom_components/med_expert/
-├── __init__.py           # Integration setup
-├── config_flow.py        # Configuration UI
-├── const.py              # Constants
-├── data.py               # Runtime data types
-├── diagnostics.py        # Diagnostics support
-├── ha_services.py        # HA service registration
-├── sensor.py             # Sensor entities
-├── button.py             # Button entities
-├── store.py              # Persistence layer
-├── manifest.json         # Integration manifest
-├── translations/         # Translations
-│   └── en.json
-├── domain/               # Pure domain logic (no HA imports)
-│   ├── models.py         # Domain models (Profile, Medication, etc.)
-│   ├── schedule.py       # Schedule computation engine
-│   └── policies.py       # Policy logic
-├── application/          # Application services
-│   └── services.py       # Use cases and commands
-├── providers/            # Medication providers
-│   ├── base.py           # Provider interface
-│   ├── manual.py         # Manual entry provider
-│   ├── rxnorm.py         # RxNorm stub (future)
-│   └── openfda.py        # OpenFDA stub (future)
-└── runtime/              # Runtime components
-    ├── manager.py        # Profile manager
-    └── scheduler.py      # Reminder scheduler
+med-expert/
+├── custom_components/med_expert/
+│   ├── __init__.py           # Integration setup
+│   ├── config_flow.py        # Configuration UI
+│   ├── const.py              # Constants
+│   ├── data.py               # Runtime data types
+│   ├── diagnostics.py        # Diagnostics support
+│   ├── ha_services.py        # HA service registration
+│   ├── websocket_api.py      # WebSocket API for frontend panel
+│   ├── sensor.py             # Sensor entities
+│   ├── button.py             # Button entities
+│   ├── store.py              # Persistence layer
+│   ├── manifest.json         # Integration manifest
+│   ├── translations/         # Translations
+│   │   └── en.json
+│   ├── www/                  # Frontend assets (built output)
+│   │   └── med-expert-panel.js
+│   ├── domain/               # Pure domain logic (no HA imports)
+│   │   ├── models.py         # Domain models (Profile, Medication, etc.)
+│   │   ├── schedule.py       # Schedule computation engine
+│   │   └── policies.py       # Policy logic
+│   ├── application/          # Application services
+│   │   └── services.py       # Use cases and commands
+│   ├── providers/            # Medication providers
+│   │   ├── base.py           # Provider interface
+│   │   ├── manual.py         # Manual entry provider
+│   │   ├── rxnorm.py         # RxNorm stub (future)
+│   │   └── openfda.py        # OpenFDA stub (future)
+│   └── runtime/              # Runtime components
+│       ├── manager.py        # Profile manager
+│       ├── scheduler.py      # Reminder scheduler
+│       └── notifications.py  # Notification manager
+│
+└── frontend/                 # Frontend panel source (TypeScript)
+    ├── src/
+    │   └── med-expert-panel.ts
+    ├── package.json
+    ├── tsconfig.json
+    └── build.js
 ```
 
 ## Architecture
@@ -374,6 +409,26 @@ pytest --cov=custom_components.med_expert tests/
 ```bash
 scripts/lint
 ```
+
+### Frontend Development
+
+The frontend panel is built with TypeScript and Lit:
+
+```bash
+# Install dependencies
+cd frontend
+npm install
+
+# Build the panel
+npm run build
+
+# Watch mode (rebuilds on changes)
+npm run watch
+```
+
+The built output goes to `custom_components/med_expert/www/med-expert-panel.js`.
+
+See [frontend/README.md](frontend/README.md) for more details.
 
 ### Key Test Cases
 

@@ -16,3 +16,10 @@ coverage.xml
 # Home Assistant configuration
 config/*
 !config/configuration.yaml
+
+# Frontend build artifacts
+frontend/node_modules/
+frontend/dist/
+frontend/package-lock.json
+custom_components/med_expert/www/*.js
+custom_components/med_expert/www/*.js.map
