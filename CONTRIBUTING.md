@@ -46,6 +46,24 @@ People *love* thorough bug reports. I'm not even kidding.
 
 Use [black](https://github.com/ambv/black) to make sure the code follows the style.
 
+## Building the Frontend
+
+The frontend panel is built with TypeScript. To build it:
+
+```bash
+scripts/build-frontend
+```
+
+This will compile the TypeScript source in `frontend/src/` and output to `custom_components/med_expert/www/med-expert-panel.js`.
+
+For development with auto-rebuild:
+
+```bash
+cd frontend
+npm install
+npm run watch
+```
+
 ## Test your code modification
 
 This custom component is based on [integration_blueprint template](https://github.com/ludeeus/integration_blueprint).

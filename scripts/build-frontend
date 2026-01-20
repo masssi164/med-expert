@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+#
+# Build the frontend panel
+#
+
+set -e
+
+cd "$(dirname "$0")/.."
+
+echo "Building Med Expert frontend panel..."
+cd frontend
+npm install
+npm run build
+cd ..
+
+echo "✓ Frontend built successfully!"
+echo "Output: custom_components/med_expert/www/med-expert-panel.js"
