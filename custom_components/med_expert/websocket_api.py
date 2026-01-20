@@ -47,17 +47,17 @@ async def handle_get_profiles(
     """
     try:
         profiles = []
-        
+
         # Get all Med Expert config entries
         entries: list[MedExpertConfigEntry] = hass.config_entries.async_entries(DOMAIN)
-        
+
         for entry in entries:
             if not entry.runtime_data:
                 continue
-                
+
             manager = entry.runtime_data.manager
             profile = manager.profile
-            
+
             # Build medication list
             medications = []
             for med in profile.medications:
@@ -65,21 +65,25 @@ async def handle_get_profiles(
                     "medication_id": med.medication_id,
                     "display_name": med.display_name,
                     "status": med.state.status,
-                    "next_due": med.state.next_due.isoformat() if med.state.next_due else None,
-                    "next_dose": med.state.next_dose.format() if med.state.next_dose else None,
+                    "next_due": med.state.next_due.isoformat()
+                    if med.state.next_due
+                    else None,
+                    "next_dose": med.state.next_dose.format()
+                    if med.state.next_dose
+                    else None,
                     "form": med.form.value if med.form else None,
                 }
                 medications.append(med_data)
-            
+
             profile_data = {
                 "profile_id": profile.profile_id,
                 "name": profile.name,
                 "medications": medications,
             }
             profiles.append(profile_data)
-        
+
         connection.send_result(msg["id"], {"profiles": profiles})
-        
+
     except Exception as err:
         _LOGGER.exception("Error handling get_profiles")
         connection.send_error(

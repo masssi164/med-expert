@@ -10,7 +10,6 @@ import logging
 from typing import TYPE_CHECKING
 
 from homeassistant.const import Platform
-from homeassistant.components.frontend import async_register_built_in_panel
 
 from .const import CONF_PROFILE_NAME, DOMAIN
 from .data import MedExpertData
@@ -33,7 +32,7 @@ PLATFORMS: list[Platform] = [
 ]
 
 
-async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+async def async_setup(hass: HomeAssistant, config: dict) -> bool:  # noqa: ARG001
     """Set up the Med Expert component."""
     # Register static path for frontend resources
     hass.http.register_static_path(
@@ -41,10 +40,10 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         hass.config.path("custom_components/med_expert/www"),
         cache_headers=False,
     )
-    
+
     # Register WebSocket API
     async_register_websocket_api(hass)
-    
+
     return True
 
 

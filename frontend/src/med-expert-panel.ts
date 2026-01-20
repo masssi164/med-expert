@@ -9,18 +9,11 @@ import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 
 interface HomeAssistant {
-  callService(domain: string, service: string, data?: any): Promise<any>;
-  callWS<T>(msg: any): Promise<T>;
+  callService(domain: string, service: string, data?: Record<string, unknown>): Promise<unknown>;
+  callWS<T>(msg: Record<string, unknown>): Promise<T>;
   states: {
-    [entity_id: string]: any;
+    [entity_id: string]: unknown;
   };
-}
-
-interface PanelElement extends HTMLElement {
-  hass?: HomeAssistant;
-  narrow?: boolean;
-  route?: any;
-  panel?: any;
 }
 
 interface Medication {
@@ -224,14 +217,15 @@ export class MedExpertPanel extends LitElement {
 
       // Load profiles from Home Assistant
       // This will need to be adjusted based on how data is exposed
-      const result = await this.hass.callWS<any>({
+      const result = await this.hass.callWS<{ profiles: Profile[] }>({
         type: 'med_expert/get_profiles',
       });
 
       this._profiles = result.profiles || [];
       this._loading = false;
-    } catch (err: any) {
-      this._error = err.message || 'Failed to load data';
+    } catch (err) {
+      const error = err as Error;
+      this._error = error.message || 'Failed to load data';
       this._loading = false;
     }
   }
@@ -243,8 +237,9 @@ export class MedExpertPanel extends LitElement {
         medication_id: medicationId,
       });
       await this._loadData();
-    } catch (err: any) {
-      this._error = `Failed to take medication: ${err.message}`;
+    } catch (err) {
+      const error = err as Error;
+      this._error = `Failed to take medication: ${error.message}`;
     }
   }
 
@@ -255,8 +250,9 @@ export class MedExpertPanel extends LitElement {
         medication_id: medicationId,
       });
       await this._loadData();
-    } catch (err: any) {
-      this._error = `Failed to snooze: ${err.message}`;
+    } catch (err) {
+      const error = err as Error;
+      this._error = `Failed to snooze: ${error.message}`;
     }
   }
 
@@ -267,8 +263,9 @@ export class MedExpertPanel extends LitElement {
         medication_id: medicationId,
       });
       await this._loadData();
-    } catch (err: any) {
-      this._error = `Failed to skip: ${err.message}`;
+    } catch (err) {
+      const error = err as Error;
+      this._error = `Failed to skip: ${error.message}`;
     }
   }
 
@@ -279,8 +276,9 @@ export class MedExpertPanel extends LitElement {
         medication_id: medicationId,
       });
       await this._loadData();
-    } catch (err: any) {
-      this._error = `Failed to log PRN: ${err.message}`;
+    } catch (err) {
+      const error = err as Error;
+      this._error = `Failed to log PRN: ${error.message}`;
     }
   }
 

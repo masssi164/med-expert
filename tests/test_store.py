@@ -559,13 +559,12 @@ class TestMigrations:
         # Verify v2 fields were added
         profile = migrated["profiles"]["profile-1"]
         med = profile["medications"]["med-1"]
-        
+
         assert med["form"] == "tablet"
         assert med["inventory"] is None
         assert profile["notification_settings"] is None
         assert profile["adherence_stats"] is None
         assert migrated["schema_version"] == 2
-
 
 
 class TestProfileOperations:
