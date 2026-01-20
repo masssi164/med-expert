@@ -221,7 +221,6 @@ export class MedExpertPanel extends LitElement {
     if (this._loading) {
       return html`
         <div class="loading">
-          <ha-circular-progress active></ha-circular-progress>
           <p>Loading medications...</p>
         </div>
       `;
