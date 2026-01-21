@@ -10,6 +10,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.const import Platform
 
 from .const import CONF_PROFILE_NAME, DOMAIN
@@ -37,8 +38,14 @@ async def async_setup(hass: HomeAssistant, _config: dict) -> bool:
     # Register frontend panel static path
     www_path = Path(__file__).parent / "www"
     if www_path.exists():
-        hass.http.register_static_path(
-            f"/api/{DOMAIN}/www", str(www_path), cache_headers=True
+        await hass.http.async_register_static_paths(
+            [
+                StaticPathConfig(
+                    f"/api/{DOMAIN}/www",
+                    str(www_path),
+                    cache_headers=True,
+                ),
+            ]
         )
         _LOGGER.info("Registered frontend panel static path: %s", www_path)
 
