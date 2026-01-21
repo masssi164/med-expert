@@ -7,6 +7,7 @@ Custom integration for medication management in Home Assistant.
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from homeassistant.const import Platform
@@ -29,6 +30,19 @@ PLATFORMS: list[Platform] = [
     Platform.SENSOR,
     Platform.BUTTON,
 ]
+
+
+async def async_setup(hass: HomeAssistant, _config: dict) -> bool:
+    """Set up the Med Expert component."""
+    # Register frontend panel static path
+    www_path = Path(__file__).parent / "www"
+    if www_path.exists():
+        hass.http.register_static_path(
+            f"/api/{DOMAIN}/www", str(www_path), cache_headers=True
+        )
+        _LOGGER.info("Registered frontend panel static path: %s", www_path)
+
+    return True
 
 
 async def async_setup_entry(

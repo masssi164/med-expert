@@ -61,7 +61,7 @@ async def test_store_migration_with_legacy_file():
     # Mock the Store to simulate Home Assistant's migration behavior
     with patch("custom_components.med_expert.store.Store") as MockStore:
         mock_store_instance = MagicMock()
-        
+
         # Simulate what HA Store does: call async_migrator if version differs
         async def mock_async_load():
             # Store the migrator callback that was passed during __init__
@@ -70,7 +70,7 @@ async def test_store_migration_with_legacy_file():
                 # HA Store calls the migrator with old version info
                 return await migrator(0, 0, legacy_data)
             return legacy_data
-        
+
         mock_store_instance.async_load = AsyncMock(side_effect=mock_async_load)
         MockStore.return_value = mock_store_instance
 
@@ -153,7 +153,7 @@ async def test_store_migration_v1_to_v2():
 
     with patch("custom_components.med_expert.store.Store") as MockStore:
         mock_store_instance = MagicMock()
-        
+
         # Simulate what HA Store does: call async_migrator if version differs
         async def mock_async_load():
             # Store the migrator callback that was passed during __init__
@@ -162,7 +162,7 @@ async def test_store_migration_v1_to_v2():
                 # HA Store calls the migrator with old version info
                 return await migrator(1, 0, v1_data)
             return v1_data
-        
+
         mock_store_instance.async_load = AsyncMock(side_effect=mock_async_load)
         MockStore.return_value = mock_store_instance
 
@@ -211,7 +211,7 @@ async def test_repository_load_with_migration():
 
     with patch("custom_components.med_expert.store.Store") as MockStore:
         mock_store_instance = MagicMock()
-        
+
         # Simulate what HA Store does: call async_migrator if version differs
         async def mock_async_load():
             # Store the migrator callback that was passed during __init__
@@ -220,7 +220,7 @@ async def test_repository_load_with_migration():
                 # HA Store calls the migrator with old version info
                 return await migrator(0, 0, legacy_data)
             return legacy_data
-        
+
         mock_store_instance.async_load = AsyncMock(side_effect=mock_async_load)
         MockStore.return_value = mock_store_instance
 
@@ -248,14 +248,14 @@ async def test_no_migration_needed_for_current_version():
 
     with patch("custom_components.med_expert.store.Store") as MockStore:
         mock_store_instance = MagicMock()
-        
+
         # Simulate what HA Store does: no migration needed for current version
         async def mock_async_load():
             # Store the migrator callback that was passed during __init__
             migrator = MockStore.call_args.kwargs.get("async_migrator")
             # HA Store won't call migrator if versions match
             return current_data
-        
+
         mock_store_instance.async_load = AsyncMock(side_effect=mock_async_load)
         MockStore.return_value = mock_store_instance
 
