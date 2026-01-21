@@ -101,9 +101,9 @@ def test_async_setup_function_exists():
     assert "async def async_setup" in content, "Should define async_setup function"
 
     # Check that it registers the static path with the new async API
-    assert (
-        "async_register_static_paths" in content
-    ), "Should use async_register_static_paths"
+    assert "async_register_static_paths" in content, (
+        "Should use async_register_static_paths"
+    )
 
     # Check that it imports StaticPathConfig
     assert "StaticPathConfig" in content, "Should import StaticPathConfig"
