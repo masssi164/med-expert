@@ -48,12 +48,12 @@ async def test_async_setup_registers_static_path(hass: HomeAssistant) -> None:
     # Verify the correct path was registered
     call_args = mock_register.call_args
     assert call_args[0][0] == f"/api/{DOMAIN}/www"
-    
+
     # Verify the path points to the www directory
     registered_path = call_args[0][1]
     assert "www" in registered_path
     assert Path(registered_path).name == "www"
-    
+
     # Verify cache_headers is True
     assert call_args[1]["cache_headers"] is True
 
@@ -62,16 +62,17 @@ async def test_async_setup_verifies_www_exists(hass: HomeAssistant) -> None:
     """Test that async_setup checks if www directory exists."""
     # Get the actual www path
     import custom_components.med_expert as med_expert_module
+
     module_path = Path(med_expert_module.__file__).parent
     www_path = module_path / "www"
-    
+
     # Verify the www directory exists
     assert www_path.exists(), f"www directory should exist at {www_path}"
-    
+
     # Verify the JavaScript file exists
     js_file = www_path / "med-expert-panel.js"
     assert js_file.exists(), f"JavaScript file should exist at {js_file}"
-    
+
     # Verify the JavaScript file is not empty
     assert js_file.stat().st_size > 0, "JavaScript file should not be empty"
 
@@ -94,47 +95,55 @@ async def test_async_setup_with_nonexistent_www(hass: HomeAssistant) -> None:
 async def test_frontend_panel_js_is_valid(hass: HomeAssistant) -> None:
     """Test that the frontend panel JavaScript file is valid."""
     import custom_components.med_expert as med_expert_module
+
     module_path = Path(med_expert_module.__file__).parent
     js_file = module_path / "www" / "med-expert-panel.js"
-    
+
     # Read the JavaScript file
     content = js_file.read_text()
-    
+
     # Basic validation - should contain Lit and panel code
-    assert "lit" in content.lower() or "LitElement" in content, "Should contain Lit framework code"
-    assert "med-expert-panel" in content or "MedExpertPanel" in content, "Should contain panel component"
-    
+    assert "lit" in content.lower() or "LitElement" in content, (
+        "Should contain Lit framework code"
+    )
+    assert "med-expert-panel" in content or "MedExpertPanel" in content, (
+        "Should contain panel component"
+    )
+
     # Should be minified (production build)
     # Minified files typically have very long lines
-    lines = content.split('\n')
+    lines = content.split("\n")
     assert any(len(line) > 1000 for line in lines), "Should be minified with long lines"
 
 
 async def test_frontend_panel_has_required_methods(hass: HomeAssistant) -> None:
     """Test that the frontend panel implements required methods."""
     import custom_components.med_expert as med_expert_module
+
     module_path = Path(med_expert_module.__file__).parent
     js_file = module_path / "www" / "med-expert-panel.js"
-    
+
     content = js_file.read_text()
-    
+
     # Check for essential Lit lifecycle methods and patterns
     # These might be minified, so we look for function patterns
     assert "render" in content, "Should have render method"
     assert "hass" in content, "Should reference hass object"
-    
+
     # Check for service calls
-    assert "callService" in content or "call_service" in content, "Should be able to call HA services"
+    assert "callService" in content or "call_service" in content, (
+        "Should be able to call HA services"
+    )
 
 
 async def test_static_path_url_structure(hass: HomeAssistant) -> None:
     """Test that the static path URL follows HA conventions."""
     # The URL should follow the pattern /api/{domain}/www
     expected_url = f"/api/{DOMAIN}/www"
-    
+
     # Verify the URL structure is correct
     assert expected_url == "/api/med_expert/www"
-    
+
     # The URL should be accessible after registration
     # In a real HA instance, this would be accessible at:
     # http://homeassistant.local:8123/api/med_expert/www/med-expert-panel.js

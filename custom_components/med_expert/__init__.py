@@ -38,9 +38,7 @@ async def async_setup(hass: HomeAssistant, _config: dict) -> bool:
     www_path = Path(__file__).parent / "www"
     if www_path.exists():
         hass.http.register_static_path(
-            f"/api/{DOMAIN}/www",
-            str(www_path),
-            cache_headers=True
+            f"/api/{DOMAIN}/www", str(www_path), cache_headers=True
         )
         _LOGGER.info("Registered frontend panel static path: %s", www_path)
 
