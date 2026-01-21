@@ -35,7 +35,32 @@ if not HAS_HA_FIXTURES:
     mock_ha.config_entries = MagicMock()
     mock_ha.core = MagicMock()
     mock_ha.helpers = MagicMock()
+
+    # Mock Store class to accept async_migrator parameter
+    class MockStore:
+        """Mock Store class for testing that accepts async_migrator parameter."""
+
+        def __init__(
+            self, hass, version, key, minor_version=1, async_migrator=None
+        ) -> None:
+            """Initialize mock store."""
+            self.hass = hass
+            self.version = version
+            self.key = key
+            self.minor_version = minor_version
+            self.async_migrator = async_migrator
+            self._data = None
+
+        async def async_load(self):
+            """Load data from store."""
+            return self._data
+
+        async def async_save(self, data):
+            """Save data to store."""
+            self._data = data
+
     mock_ha.helpers.storage = MagicMock()
+    mock_ha.helpers.storage.Store = MockStore
 
     sys.modules["homeassistant"] = mock_ha
     sys.modules["homeassistant.const"] = mock_ha.const
