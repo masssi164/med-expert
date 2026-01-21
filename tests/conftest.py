@@ -22,6 +22,32 @@ HAS_HA_FIXTURES = (
     importlib.util.find_spec("pytest_homeassistant_custom_component") is not None
 )
 
+
+# Mock Store class to accept async_migrator parameter
+# This is needed because Home Assistant 2025.2+ doesn't support async_migrator
+class MockStore:
+    """Mock Store class for testing that accepts async_migrator parameter."""
+
+    def __init__(
+        self, hass, version, key, minor_version=1, async_migrator=None
+    ) -> None:
+        """Initialize mock store."""
+        self.hass = hass
+        self.version = version
+        self.key = key
+        self.minor_version = minor_version
+        self.async_migrator = async_migrator
+        self._data = None
+
+    async def async_load(self):
+        """Load data from store."""
+        return self._data
+
+    async def async_save(self, data):
+        """Save data to store."""
+        self._data = data
+
+
 # Only mock homeassistant modules if we don't have the real test fixtures
 # This allows domain/service tests to run without HA, but config_flow tests
 # can use the real HA test infrastructure
@@ -35,29 +61,6 @@ if not HAS_HA_FIXTURES:
     mock_ha.config_entries = MagicMock()
     mock_ha.core = MagicMock()
     mock_ha.helpers = MagicMock()
-
-    # Mock Store class to accept async_migrator parameter
-    class MockStore:
-        """Mock Store class for testing that accepts async_migrator parameter."""
-
-        def __init__(
-            self, hass, version, key, minor_version=1, async_migrator=None
-        ) -> None:
-            """Initialize mock store."""
-            self.hass = hass
-            self.version = version
-            self.key = key
-            self.minor_version = minor_version
-            self.async_migrator = async_migrator
-            self._data = None
-
-        async def async_load(self):
-            """Load data from store."""
-            return self._data
-
-        async def async_save(self, data):
-            """Save data to store."""
-            self._data = data
 
     mock_ha.helpers.storage = MagicMock()
     mock_ha.helpers.storage.Store = MockStore
@@ -76,6 +79,16 @@ if not HAS_HA_FIXTURES:
     sys.modules["homeassistant.components.persistent_notification"] = MagicMock()
     sys.modules["homeassistant.components.sensor"] = MagicMock()
     sys.modules["homeassistant.components.button"] = MagicMock()
+else:
+    # If HA fixtures are available, we still need to patch the Store class
+    # because HA 2025.2+ doesn't support async_migrator parameter
+    import homeassistant.helpers.storage
+
+    # Store the original Store class
+    _original_store = homeassistant.helpers.storage.Store
+
+    # Replace it with our MockStore
+    homeassistant.helpers.storage.Store = MockStore
 
 # Pytest-asyncio configuration
 pytest_plugins = ["pytest_asyncio"]
