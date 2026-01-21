@@ -100,8 +100,13 @@ def test_async_setup_function_exists():
     # Check that async_setup function is defined
     assert "async def async_setup" in content, "Should define async_setup function"
 
-    # Check that it registers the static path
-    assert "register_static_path" in content, "Should register static path"
+    # Check that it registers the static path with the new async API
+    assert "async_register_static_paths" in content, (
+        "Should use async_register_static_paths"
+    )
+
+    # Check that it imports StaticPathConfig
+    assert "StaticPathConfig" in content, "Should import StaticPathConfig"
 
     # Check that it references the www directory
     assert "www" in content, "Should reference www directory"
@@ -141,6 +146,11 @@ def test_static_path_url_follows_convention():
 
     # Check for cache_headers parameter
     assert "cache_headers" in content, "Should enable cache headers for static files"
+
+    # Check for await keyword with async_register_static_paths
+    assert "await hass.http.async_register_static_paths" in content, (
+        "Should await async_register_static_paths call"
+    )
 
 
 def test_source_map_exists():

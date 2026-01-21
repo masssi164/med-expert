@@ -1,6 +1,7 @@
 {
   "domain": "med_expert",
   "name": "Med Expert",
+  "after_dependencies": ["http"],
   "codeowners": [],
   "config_flow": true,
   "documentation": "https://github.com/your-username/med-expert",

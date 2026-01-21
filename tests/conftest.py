@@ -55,6 +55,14 @@ class MockStore:
         """Internal save method (for pytest-homeassistant-custom-component compatibility)."""
         self._data = data
 
+    async def _async_write_data(self, data):
+        """Internal write data method (for pytest-homeassistant-custom-component compatibility)."""
+        self._data = data
+
+    async def async_remove(self):
+        """Remove data from store."""
+        self._data = None
+
 
 # Only mock homeassistant modules if we don't have the real test fixtures
 # This allows domain/service tests to run without HA, but config_flow tests

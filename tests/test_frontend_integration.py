@@ -32,9 +32,9 @@ from custom_components.med_expert.const import DOMAIN
 
 async def test_async_setup_registers_static_path(hass: HomeAssistant) -> None:
     """Test that async_setup registers the frontend panel static path."""
-    # Mock the http register_static_path method
-    mock_register = MagicMock()
-    hass.http.register_static_path = mock_register
+    # Mock the http async_register_static_paths method
+    mock_register = AsyncMock()
+    hass.http.async_register_static_paths = mock_register
 
     # Call async_setup
     result = await async_setup(hass, {})
@@ -42,20 +42,25 @@ async def test_async_setup_registers_static_path(hass: HomeAssistant) -> None:
     # Verify it returned True
     assert result is True
 
-    # Verify register_static_path was called
+    # Verify async_register_static_paths was called
     assert mock_register.call_count == 1
 
     # Verify the correct path was registered
     call_args = mock_register.call_args
-    assert call_args[0][0] == f"/api/{DOMAIN}/www"
+    # The argument is a list of StaticPathConfig objects
+    static_configs = call_args[0][0]
+    assert len(static_configs) == 1
+
+    # Extract the StaticPathConfig object
+    config = static_configs[0]
+    assert config.url_path == f"/api/{DOMAIN}/www"
 
     # Verify the path points to the www directory
-    registered_path = call_args[0][1]
-    assert "www" in registered_path
-    assert Path(registered_path).name == "www"
+    assert "www" in config.path
+    assert Path(config.path).name == "www"
 
     # Verify cache_headers is True
-    assert call_args[1]["cache_headers"] is True
+    assert config.cache_headers is True
 
 
 async def test_async_setup_verifies_www_exists(hass: HomeAssistant) -> None:
@@ -79,9 +84,9 @@ async def test_async_setup_verifies_www_exists(hass: HomeAssistant) -> None:
 
 async def test_async_setup_with_nonexistent_www(hass: HomeAssistant) -> None:
     """Test that async_setup handles gracefully when www doesn't exist."""
-    # Mock the http register_static_path method
-    mock_register = MagicMock()
-    hass.http.register_static_path = mock_register
+    # Mock the http async_register_static_paths method
+    mock_register = AsyncMock()
+    hass.http.async_register_static_paths = mock_register
 
     # Mock Path.exists to return False
     with patch("custom_components.med_expert.Path.exists", return_value=False):
