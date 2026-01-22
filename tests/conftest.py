@@ -90,9 +90,21 @@ if not HAS_HA_FIXTURES:
     sys.modules["homeassistant.data_entry_flow"] = MagicMock()
     sys.modules["homeassistant.helpers.event"] = MagicMock()
     sys.modules["homeassistant.helpers.dispatcher"] = MagicMock()
-    sys.modules["homeassistant.components.persistent_notification"] = MagicMock()
-    sys.modules["homeassistant.components.sensor"] = MagicMock()
-    sys.modules["homeassistant.components.button"] = MagicMock()
+    
+    # Mock components
+    mock_components = MagicMock()
+    mock_components.persistent_notification = MagicMock()
+    mock_components.sensor = MagicMock()
+    mock_components.button = MagicMock()
+    mock_components.http = MagicMock()
+    mock_components.http.StaticPathConfig = MagicMock()
+    mock_ha.components = mock_components
+    
+    sys.modules["homeassistant.components"] = mock_components
+    sys.modules["homeassistant.components.persistent_notification"] = mock_components.persistent_notification
+    sys.modules["homeassistant.components.sensor"] = mock_components.sensor
+    sys.modules["homeassistant.components.button"] = mock_components.button
+    sys.modules["homeassistant.components.http"] = mock_components.http
 else:
     # If HA fixtures are available, we still need to patch the Store class
     # to ensure consistent behavior in tests

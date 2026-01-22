@@ -58,33 +58,43 @@ async def test_store_migration_with_legacy_file():
         },
     }
 
-    # Mock the Store to return legacy data
+    # Mock the Store to simulate version mismatch and call migrator
     with patch("custom_components.med_expert.store.Store") as MockStore:
         mock_store_instance = MagicMock()
 
-        # Store returns legacy data unchanged
-        mock_store_instance.async_load = AsyncMock(return_value=legacy_data)
+        # Create ProfileStore first to capture the migrator
+        store = ProfileStore(hass)
+        
+        # Verify Store was initialized with async_migrator
+        call_kwargs = MockStore.call_args.kwargs
+        assert "async_migrator" in call_kwargs
+        assert call_kwargs.get("minor_version") == 1
+        assert callable(call_kwargs["async_migrator"])
+        
+        # Get the migrator callback
+        migrator = call_kwargs["async_migrator"]
+        
+        # Simulate what Store does: calls migrator when version mismatch detected
+        # Legacy data had version 0, current is version 2
+        migrated_data = await migrator(0, 0, legacy_data)
+        
+        # Store returns migrated data
+        mock_store_instance.async_load = AsyncMock(return_value=migrated_data)
         mock_store_instance.async_save = AsyncMock()
         MockStore.return_value = mock_store_instance
-
-        # Create ProfileStore and load data - migration happens in async_load
+        
+        # Re-create store with mocked instance
         store = ProfileStore(hass)
+        store._store = mock_store_instance
+        
         profiles = await store.async_load()
 
-        # Verify Store was initialized without async_migrator
-        call_kwargs = MockStore.call_args.kwargs
-        assert "async_migrator" not in call_kwargs
-        assert call_kwargs.get("minor_version") == 1
-
         # Verify migration was successful - check the internal data
-        migrated_data = store._data
-        assert migrated_data["schema_version"] == 2
-
-        # Verify async_save was called to persist the migrated data
-        assert mock_store_instance.async_save.called
+        result_data = store._data
+        assert result_data["schema_version"] == 2
 
         # Check medication was migrated
-        med = migrated_data["profiles"]["test-profile-123"]["medications"][
+        med = result_data["profiles"]["test-profile-123"]["medications"][
             "med-aspirin"
         ]
         assert "dose" not in med  # Old field removed
@@ -102,7 +112,7 @@ async def test_store_migration_with_legacy_file():
         assert med["is_active"] is True
 
         # Check log was migrated
-        log = migrated_data["profiles"]["test-profile-123"]["logs"][0]
+        log = result_data["profiles"]["test-profile-123"]["logs"][0]
         assert "dose" in log  # Dose was added
         assert log["dose"]["numerator"] == 6
         assert log["medication_id"] is None  # v2 field added
@@ -150,22 +160,30 @@ async def test_store_migration_v1_to_v2():
     with patch("custom_components.med_expert.store.Store") as MockStore:
         mock_store_instance = MagicMock()
 
-        # Store returns v1 data unchanged
-        mock_store_instance.async_load = AsyncMock(return_value=v1_data)
+        # Create ProfileStore first to capture the migrator
+        store = ProfileStore(hass)
+        
+        # Get the migrator callback
+        call_kwargs = MockStore.call_args.kwargs
+        migrator = call_kwargs["async_migrator"]
+        
+        # Simulate what Store does: calls migrator for v1 data
+        migrated_data = await migrator(1, 0, v1_data)
+        
+        # Store returns migrated data
+        mock_store_instance.async_load = AsyncMock(return_value=migrated_data)
         mock_store_instance.async_save = AsyncMock()
         MockStore.return_value = mock_store_instance
 
         store = ProfileStore(hass)
+        store._store = mock_store_instance
         profiles = await store.async_load()
 
         # Get the migrated data
-        migrated_data = store._data
-
-        # Verify async_save was called to persist the migrated data
-        assert mock_store_instance.async_save.called
+        result_data = store._data
 
         # Check v2 fields were added
-        profile = migrated_data["profiles"]["profile-xyz"]
+        profile = result_data["profiles"]["profile-xyz"]
         assert profile["notification_settings"] is None
         assert profile["adherence_stats"] is None
         assert profile["owner_name"] is None
@@ -204,16 +222,25 @@ async def test_repository_load_with_migration():
     with patch("custom_components.med_expert.store.Store") as MockStore:
         mock_store_instance = MagicMock()
 
-        # Store returns legacy data unchanged
-        mock_store_instance.async_load = AsyncMock(return_value=legacy_data)
+        # Create ProfileStore first to capture the migrator
+        temp_store = ProfileStore(hass)
+        call_kwargs = MockStore.call_args.kwargs
+        migrator = call_kwargs["async_migrator"]
+        
+        # Simulate migration
+        migrated_data = await migrator(0, 0, legacy_data)
+        
+        # Store returns migrated data
+        mock_store_instance.async_load = AsyncMock(return_value=migrated_data)
         mock_store_instance.async_save = AsyncMock()
         MockStore.return_value = mock_store_instance
 
         # Create repository and load
         store = ProfileStore(hass)
+        store._store = mock_store_instance
         repository = ProfileRepository(store)
 
-        # This should not raise errors - migration happens in async_load
+        # This should not raise errors
         await repository.async_load()
 
         # Verify profile was loaded
@@ -234,12 +261,13 @@ async def test_no_migration_needed_for_current_version():
     with patch("custom_components.med_expert.store.Store") as MockStore:
         mock_store_instance = MagicMock()
 
-        # Store returns current version data
+        # Store returns current version data (no migration needed)
         mock_store_instance.async_load = AsyncMock(return_value=current_data)
         mock_store_instance.async_save = AsyncMock()
         MockStore.return_value = mock_store_instance
 
         store = ProfileStore(hass)
+        store._store = mock_store_instance
         profiles = await store.async_load()
 
         # Get the data after loading
@@ -249,5 +277,54 @@ async def test_no_migration_needed_for_current_version():
         assert result["schema_version"] == 2
         assert result["profiles"] == {}
 
-        # async_save should NOT be called since no migration was needed
-        assert not mock_store_instance.async_save.called
+
+@pytest.mark.asyncio
+async def test_downgrade_scenario_handles_gracefully():
+    """Test that downgrade scenario (higher version stored) is handled gracefully."""
+    hass = MagicMock()
+
+    # Simulate data from a future version (v3)
+    future_data = {
+        "schema_version": 3,  # Higher than current version (2)
+        "profiles": {
+            "prof-1": {
+                "profile_id": "prof-1",
+                "name": "Test",
+                "timezone": "UTC",
+                "medications": {},
+                "logs": [],
+                "future_field": "some_value",  # New field from future version
+            },
+        },
+    }
+
+    with patch("custom_components.med_expert.store.Store") as MockStore:
+        mock_store_instance = MagicMock()
+
+        # Create ProfileStore first to capture the migrator
+        store = ProfileStore(hass)
+        call_kwargs = MockStore.call_args.kwargs
+        migrator = call_kwargs["async_migrator"]
+        
+        # Simulate downgrade: stored version (3) > current version (2)
+        # This should log a warning but not crash
+        migrated_data = await migrator(3, 0, future_data)
+        
+        # Store returns the data (with version adjusted)
+        mock_store_instance.async_load = AsyncMock(return_value=migrated_data)
+        mock_store_instance.async_save = AsyncMock()
+        MockStore.return_value = mock_store_instance
+
+        store = ProfileStore(hass)
+        store._store = mock_store_instance
+        
+        # This should not raise an error
+        profiles = await store.async_load()
+
+        # Verify data was loaded (even with future fields)
+        assert len(profiles) == 1
+        assert "prof-1" in profiles
+        assert profiles["prof-1"].name == "Test"
+        
+        # Schema version should be updated to current
+        assert store._data["schema_version"] == 2
