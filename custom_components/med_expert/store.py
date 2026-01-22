@@ -45,38 +45,8 @@ class ProfileStore:
             STORE_VERSION,
             f"{DOMAIN}.{STORE_KEY}",
             minor_version=1,
-            async_migrator=self._async_migrator,
         )
         self._data: dict[str, Any] | None = None
-
-    async def _async_migrator(
-        self, old_major_version: int, old_minor_version: int, old_data: dict[str, Any]
-    ) -> dict[str, Any]:
-        """
-        Migrate data from old version to current version.
-
-        This is called by Home Assistant's Store when loading data with a different
-        version than the current one.
-
-        Args:
-            old_major_version: The major version of the stored data.
-            old_minor_version: The minor version of the stored data.
-            old_data: The stored data to migrate.
-
-        Returns:
-            Migrated data compatible with current version.
-
-        """
-        _LOGGER.info(
-            "Migrating med_expert data from version %s.%s to %s.%s",
-            old_major_version,
-            old_minor_version,
-            STORE_VERSION,
-            1,  # Current minor version
-        )
-
-        # Use the existing migration logic
-        return await self._async_migrate(old_data)
 
     async def async_load(self) -> dict[str, Profile]:
         """
@@ -96,7 +66,18 @@ class ProfileStore:
             }
             return {}
 
-        # Data is already migrated by Home Assistant's Store via _async_migrator
+        # Manually handle migration if needed
+        schema_version = data.get("schema_version", 0)
+        if schema_version != CURRENT_SCHEMA_VERSION:
+            _LOGGER.info(
+                "Migrating med_expert data from version %s to %s",
+                schema_version,
+                CURRENT_SCHEMA_VERSION,
+            )
+            data = await self._async_migrate(data)
+            # Save migrated data
+            await self._store.async_save(data)
+
         self._data = data
 
         # Convert to Profile objects
@@ -186,8 +167,10 @@ class ProfileStore:
         # Apply migrations in order
         if schema_version < 1:
             data = self._migrate_v0_to_v1(data)
+            schema_version = 1
         if schema_version < 2:
             data = self._migrate_v1_to_v2(data)
+            schema_version = 2
 
         data["schema_version"] = CURRENT_SCHEMA_VERSION
         return data

@@ -23,21 +23,19 @@ HAS_HA_FIXTURES = (
 )
 
 
-# Mock Store class to accept async_migrator parameter
-# This is needed because Home Assistant 2025.2+ doesn't support async_migrator
+# Mock Store class to match actual Home Assistant Store API
+# Home Assistant's Store does NOT support async_migrator parameter
 class MockStore:
-    """Mock Store class for testing that accepts async_migrator parameter."""
+    """Mock Store class for testing that matches the real Store API."""
 
-    def __init__(
-        self, hass, version, key, minor_version=1, async_migrator=None
-    ) -> None:
+    def __init__(self, hass, version, key, minor_version=1, **kwargs: object) -> None:
         """Initialize mock store."""
         self.hass = hass
         self.version = version
         self.key = key
         self.minor_version = minor_version
-        self.async_migrator = async_migrator
         self._data = None
+        # Ignore any other kwargs (like async_migrator) for compatibility
 
     async def async_load(self):
         """Load data from store."""
@@ -97,7 +95,7 @@ if not HAS_HA_FIXTURES:
     sys.modules["homeassistant.components.button"] = MagicMock()
 else:
     # If HA fixtures are available, we still need to patch the Store class
-    # because HA 2025.2+ doesn't support async_migrator parameter
+    # to ensure consistent behavior in tests
     import homeassistant.helpers.storage
 
     # Store the original Store class
