@@ -28,9 +28,7 @@ HAS_HA_FIXTURES = (
 class MockStore:
     """Mock Store class for testing that matches the real Store API."""
 
-    def __init__(
-        self, hass, version, key, minor_version=1, **kwargs: object
-    ) -> None:
+    def __init__(self, hass, version, key, minor_version=1, **kwargs: object) -> None:
         """Initialize mock store."""
         self.hass = hass
         self.version = version
