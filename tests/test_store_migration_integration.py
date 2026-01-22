@@ -9,6 +9,21 @@ import pytest
 from custom_components.med_expert.store import ProfileRepository, ProfileStore
 
 
+def _create_store_with_migrated_data(hass, migrated_data):
+    """
+    Helper to create a ProfileStore with pre-migrated data.
+    
+    This simulates what happens after Store's migrator has run.
+    """
+    mock_store_instance = MagicMock()
+    mock_store_instance.async_load = AsyncMock(return_value=migrated_data)
+    mock_store_instance.async_save = AsyncMock()
+    
+    store = ProfileStore(hass)
+    store._store = mock_store_instance
+    return store
+
+
 @pytest.mark.asyncio
 async def test_store_migration_with_legacy_file():
     """
@@ -60,8 +75,6 @@ async def test_store_migration_with_legacy_file():
 
     # Mock the Store to simulate version mismatch and call migrator
     with patch("custom_components.med_expert.store.Store") as MockStore:
-        mock_store_instance = MagicMock()
-
         # Create ProfileStore first to capture the migrator
         store = ProfileStore(hass)
         
@@ -78,15 +91,8 @@ async def test_store_migration_with_legacy_file():
         # Legacy data had version 0, current is version 2
         migrated_data = await migrator(0, 0, legacy_data)
         
-        # Store returns migrated data
-        mock_store_instance.async_load = AsyncMock(return_value=migrated_data)
-        mock_store_instance.async_save = AsyncMock()
-        MockStore.return_value = mock_store_instance
-        
-        # Re-create store with mocked instance
-        store = ProfileStore(hass)
-        store._store = mock_store_instance
-        
+        # Create store with the migrated data
+        store = _create_store_with_migrated_data(hass, migrated_data)
         profiles = await store.async_load()
 
         # Verify migration was successful - check the internal data
@@ -158,8 +164,6 @@ async def test_store_migration_v1_to_v2():
     }
 
     with patch("custom_components.med_expert.store.Store") as MockStore:
-        mock_store_instance = MagicMock()
-
         # Create ProfileStore first to capture the migrator
         store = ProfileStore(hass)
         
@@ -170,13 +174,8 @@ async def test_store_migration_v1_to_v2():
         # Simulate what Store does: calls migrator for v1 data
         migrated_data = await migrator(1, 0, v1_data)
         
-        # Store returns migrated data
-        mock_store_instance.async_load = AsyncMock(return_value=migrated_data)
-        mock_store_instance.async_save = AsyncMock()
-        MockStore.return_value = mock_store_instance
-
-        store = ProfileStore(hass)
-        store._store = mock_store_instance
+        # Create store with the migrated data
+        store = _create_store_with_migrated_data(hass, migrated_data)
         profiles = await store.async_load()
 
         # Get the migrated data
@@ -220,8 +219,6 @@ async def test_repository_load_with_migration():
     }
 
     with patch("custom_components.med_expert.store.Store") as MockStore:
-        mock_store_instance = MagicMock()
-
         # Create ProfileStore first to capture the migrator
         temp_store = ProfileStore(hass)
         call_kwargs = MockStore.call_args.kwargs
@@ -230,14 +227,8 @@ async def test_repository_load_with_migration():
         # Simulate migration
         migrated_data = await migrator(0, 0, legacy_data)
         
-        # Store returns migrated data
-        mock_store_instance.async_load = AsyncMock(return_value=migrated_data)
-        mock_store_instance.async_save = AsyncMock()
-        MockStore.return_value = mock_store_instance
-
-        # Create repository and load
-        store = ProfileStore(hass)
-        store._store = mock_store_instance
+        # Create repository with store containing migrated data
+        store = _create_store_with_migrated_data(hass, migrated_data)
         repository = ProfileRepository(store)
 
         # This should not raise errors
@@ -259,15 +250,8 @@ async def test_no_migration_needed_for_current_version():
     }
 
     with patch("custom_components.med_expert.store.Store") as MockStore:
-        mock_store_instance = MagicMock()
-
-        # Store returns current version data (no migration needed)
-        mock_store_instance.async_load = AsyncMock(return_value=current_data)
-        mock_store_instance.async_save = AsyncMock()
-        MockStore.return_value = mock_store_instance
-
-        store = ProfileStore(hass)
-        store._store = mock_store_instance
+        # Create store with current version data (no migration needed)
+        store = _create_store_with_migrated_data(hass, current_data)
         profiles = await store.async_load()
 
         # Get the data after loading
@@ -299,8 +283,6 @@ async def test_downgrade_scenario_handles_gracefully():
     }
 
     with patch("custom_components.med_expert.store.Store") as MockStore:
-        mock_store_instance = MagicMock()
-
         # Create ProfileStore first to capture the migrator
         store = ProfileStore(hass)
         call_kwargs = MockStore.call_args.kwargs
@@ -310,13 +292,8 @@ async def test_downgrade_scenario_handles_gracefully():
         # This should log a warning but not crash
         migrated_data = await migrator(3, 0, future_data)
         
-        # Store returns the data (with version adjusted)
-        mock_store_instance.async_load = AsyncMock(return_value=migrated_data)
-        mock_store_instance.async_save = AsyncMock()
-        MockStore.return_value = mock_store_instance
-
-        store = ProfileStore(hass)
-        store._store = mock_store_instance
+        # Create store with the migrated data
+        store = _create_store_with_migrated_data(hass, migrated_data)
         
         # This should not raise an error
         profiles = await store.async_load()

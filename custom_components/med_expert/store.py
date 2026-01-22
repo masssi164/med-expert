@@ -93,8 +93,7 @@ class ProfileStore:
             old_data["schema_version"] = CURRENT_SCHEMA_VERSION
             return old_data
 
-        # Perform schema migration based on schema_version in the data
-        schema_version = old_data.get("schema_version", 0)
+        # Perform schema migration - _async_migrate handles schema_version internally
         return await self._async_migrate(old_data)
 
     async def async_load(self) -> dict[str, Profile]:
