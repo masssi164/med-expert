@@ -9,13 +9,10 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "declaration": true,
-    "declarationMap": true,
     "sourceMap": true,
-    "outDir": "./dist",
     "experimentalDecorators": true,
     "useDefineForClassFields": false
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "../custom_components/med_expert/www"]
+  "exclude": ["node_modules"]
 }
