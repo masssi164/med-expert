@@ -461,14 +461,14 @@ class TestMigrations:
         assert migrated["schema_version"] == 2
 
     @pytest.mark.asyncio
-    async def test_async_migrator_callback(self):
-        """Test the _async_migrator callback that HA Store calls."""
+    async def test_async_migrate_v0_to_v2(self):
+        """Test the _async_migrate function with v0 data."""
         from custom_components.med_expert.store import ProfileStore
 
         hass = MagicMock()
         store = ProfileStore(hass)
 
-        # Test with v0 data - this simulates what HA Store will call
+        # Test with v0 data
         legacy_data = {
             "schema_version": 0,
             "profiles": {
@@ -499,8 +499,8 @@ class TestMigrations:
             },
         }
 
-        # Call the async migrator callback (this is what HA Store calls)
-        migrated = await store._async_migrator(0, 0, legacy_data)
+        # Call the async migrate function directly
+        migrated = await store._async_migrate(legacy_data)
 
         # Verify migration was applied correctly
         med = migrated["profiles"]["profile-1"]["medications"]["med-1"]
@@ -511,8 +511,8 @@ class TestMigrations:
         assert migrated["schema_version"] == 2
 
     @pytest.mark.asyncio
-    async def test_async_migrator_callback_v1_to_v2(self):
-        """Test the _async_migrator callback for v1 to v2 migration."""
+    async def test_async_migrate_v1_to_v2(self):
+        """Test the _async_migrate function for v1 to v2 migration."""
         from custom_components.med_expert.store import ProfileStore
 
         hass = MagicMock()
@@ -553,8 +553,8 @@ class TestMigrations:
             },
         }
 
-        # Call the async migrator callback with v1 data
-        migrated = await store._async_migrator(1, 0, v1_data)
+        # Call the async migrate function directly
+        migrated = await store._async_migrate(v1_data)
 
         # Verify v2 fields were added
         profile = migrated["profiles"]["profile-1"]
