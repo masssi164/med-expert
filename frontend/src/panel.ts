@@ -614,14 +614,19 @@ export class MedExpertPanel extends LitElement {
         this._entryId = this._currentProfile.entry_id;
       }
 
-      // Fetch medications from Home Assistant
-      const entities = Object.keys(this.hass.states).filter(
-        (entity_id) => entity_id.startsWith('sensor.') && entity_id.includes('med_expert')
-      );
+      // Fetch med_expert medication status sensors
+      // Med Expert sensors have 'medication_id' attribute - that's how we identify them
+      const entities = Object.keys(this.hass.states).filter((entity_id) => {
+        if (!entity_id.startsWith('sensor.') || !entity_id.endsWith('_status')) {
+          return false;
+        }
+        const state = this.hass.states[entity_id];
+        // Med Expert status sensors have medication_id attribute
+        return state?.attributes?.medication_id !== undefined;
+      });
 
       // Parse medications from sensor entities, filtered by current profile
       this._medications = entities
-        .filter((entity_id) => entity_id.endsWith('_status'))
         .map((entity_id) => {
           const state = this.hass.states[entity_id];
           const baseName = entity_id.replace('sensor.', '').replace('_status', '');
