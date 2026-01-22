@@ -63,8 +63,10 @@ async def test_store_migration_with_legacy_file():
     }
 
     # Test the migration directly using MedExpertStore
-    store_instance = MedExpertStore(hass, 2, "med_expert.med_expert_data", minor_version=1)
-    
+    store_instance = MedExpertStore(
+        hass, 2, "med_expert.med_expert_data", minor_version=1
+    )
+
     # Simulate what Store does: detect version mismatch and call _async_migrate_func
     migrated_data = await store_instance._async_migrate_func(0, 0, legacy_data)
 
@@ -72,9 +74,7 @@ async def test_store_migration_with_legacy_file():
     assert migrated_data["schema_version"] == 2
 
     # Check medication was migrated
-    med = migrated_data["profiles"]["test-profile-123"]["medications"][
-        "med-aspirin"
-    ]
+    med = migrated_data["profiles"]["test-profile-123"]["medications"]["med-aspirin"]
     assert "dose" not in med  # Old field removed
     assert "default_dose" in med["schedule"]  # Moved to schedule
 
@@ -136,8 +136,10 @@ async def test_store_migration_v1_to_v2():
     }
 
     # Test the migration directly using MedExpertStore
-    store_instance = MedExpertStore(hass, 2, "med_expert.med_expert_data", minor_version=1)
-    
+    store_instance = MedExpertStore(
+        hass, 2, "med_expert.med_expert_data", minor_version=1
+    )
+
     # Simulate what Store does: detect version mismatch and call _async_migrate_func
     migrated_data = await store_instance._async_migrate_func(1, 0, v1_data)
 
@@ -183,7 +185,9 @@ async def test_repository_load_with_migration():
     }
 
     # Mock the async_load to return current data
-    with patch.object(MedExpertStore, "async_load", new_callable=AsyncMock) as mock_load:
+    with patch.object(
+        MedExpertStore, "async_load", new_callable=AsyncMock
+    ) as mock_load:
         mock_load.return_value = current_data
         store = ProfileStore(hass)
         repository = ProfileRepository(store)
@@ -207,12 +211,14 @@ async def test_no_migration_needed_for_current_version():
     }
 
     # Test that _async_migrate_func doesn't change current version data
-    store_instance = MedExpertStore(hass, 2, "med_expert.med_expert_data", minor_version=1)
-    
+    store_instance = MedExpertStore(
+        hass, 2, "med_expert.med_expert_data", minor_version=1
+    )
+
     # When versions match, Store won't call _async_migrate_func
     # But let's verify the migration logic handles it correctly
     migrated_data = await store_instance._migrate_schema(current_data)
-    
+
     # Data should remain unchanged (no migration)
     assert migrated_data["schema_version"] == 2
     assert migrated_data["profiles"] == {}
@@ -239,15 +245,17 @@ async def test_downgrade_scenario_handles_gracefully():
     }
 
     # Test the downgrade handling
-    store_instance = MedExpertStore(hass, 2, "med_expert.med_expert_data", minor_version=1)
-    
+    store_instance = MedExpertStore(
+        hass, 2, "med_expert.med_expert_data", minor_version=1
+    )
+
     # Simulate downgrade: stored version (3) > current version (2)
     # This should log a warning but not crash
     migrated_data = await store_instance._async_migrate_func(3, 0, future_data)
-    
+
     # Verify data was loaded (schema_version updated to current)
     assert migrated_data["schema_version"] == 2
-    
+
     # Future fields should be preserved (even if not used)
     assert "prof-1" in migrated_data["profiles"]
     assert migrated_data["profiles"]["prof-1"]["name"] == "Test"

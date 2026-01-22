@@ -61,7 +61,7 @@ class MockStore:
         """Remove data from store."""
         self._data = None
 
-    def __class_getitem__(cls, item):
+    def __class_getitem__(cls, item) -> type:
         """Support generic type subscripting (e.g., Store[dict[str, Any]])."""
         return cls
 
@@ -94,7 +94,7 @@ if not HAS_HA_FIXTURES:
     sys.modules["homeassistant.data_entry_flow"] = MagicMock()
     sys.modules["homeassistant.helpers.event"] = MagicMock()
     sys.modules["homeassistant.helpers.dispatcher"] = MagicMock()
-    
+
     # Mock components
     mock_components = MagicMock()
     mock_components.persistent_notification = MagicMock()
@@ -103,9 +103,11 @@ if not HAS_HA_FIXTURES:
     mock_components.http = MagicMock()
     mock_components.http.StaticPathConfig = MagicMock()
     mock_ha.components = mock_components
-    
+
     sys.modules["homeassistant.components"] = mock_components
-    sys.modules["homeassistant.components.persistent_notification"] = mock_components.persistent_notification
+    sys.modules["homeassistant.components.persistent_notification"] = (
+        mock_components.persistent_notification
+    )
     sys.modules["homeassistant.components.sensor"] = mock_components.sensor
     sys.modules["homeassistant.components.button"] = mock_components.button
     sys.modules["homeassistant.components.http"] = mock_components.http

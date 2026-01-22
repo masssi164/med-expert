@@ -27,7 +27,7 @@ CURRENT_SCHEMA_VERSION = 2
 class MedExpertStore(Store[dict[str, Any]]):
     """
     Custom Store subclass that handles migrations for med_expert data.
-    
+
     Overrides _async_migrate_func to provide automatic migration when
     Home Assistant's Store detects a version mismatch.
     """
