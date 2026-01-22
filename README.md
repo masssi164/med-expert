@@ -301,6 +301,41 @@ policy:
   quiet_hours_end: "07:00"    # No notifications end (optional)
 ```
 
+## Custom Notification Templates
+
+You can customize notification messages using the `med_expert.update_notification_settings` service:
+
+```yaml
+service: med_expert.update_notification_settings
+data:
+  entry_id: "your_config_entry_id"
+  title_template: "Medication Time: {medication}"
+  message_template: "Take {dose} now"
+```
+
+### Available Template Variables
+
+The following variables are available in both `title_template` and `message_template`:
+
+- `{medication}`: The medication display name (e.g., "Aspirin 100mg")
+- `{dose}`: The formatted dose (e.g., "1 tablet", "1/2 tablet")
+
+### Examples
+
+**Simple reminder:**
+```yaml
+title_template: "💊 Reminder"
+message_template: "Time to take {medication} - {dose}"
+```
+
+**Detailed reminder:**
+```yaml
+title_template: "Medication: {medication}"
+message_template: "Please take {dose} as prescribed"
+```
+
+**Note:** These templates use Python string formatting (`.format()`), not Jinja2 templates. Use `{variable}` syntax, not `{{ variable }}`.
+
 ## Project Structure
 
 ```

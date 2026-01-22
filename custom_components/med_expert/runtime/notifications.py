@@ -221,15 +221,17 @@ class NotificationManager:
             )
 
         # Use custom template if available
-        if is_missed and settings.missed_template:
-            message = settings.missed_template.format(
+        if settings.message_template:
+            message = settings.message_template.format(
                 medication=medication.display_name,
                 dose=medication.state.next_dose.format()
                 if medication.state.next_dose
                 else "",
             )
-        elif not is_missed and settings.reminder_template:
-            message = settings.reminder_template.format(
+
+        # Use custom title template if available
+        if settings.title_template:
+            title = settings.title_template.format(
                 medication=medication.display_name,
                 dose=medication.state.next_dose.format()
                 if medication.state.next_dose
