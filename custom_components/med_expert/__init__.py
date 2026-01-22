@@ -10,6 +10,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from homeassistant.components import panel_custom
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.const import Platform
 from homeassistant.helpers import config_validation as cv
@@ -35,6 +36,9 @@ PLATFORMS: list[Platform] = [
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
+# URL base for static files
+URL_BASE = f"/api/{DOMAIN}/www"
+
 
 async def async_setup(hass: HomeAssistant, _config: dict) -> bool:
     """Set up the Med Expert component."""
@@ -44,13 +48,25 @@ async def async_setup(hass: HomeAssistant, _config: dict) -> bool:
         await hass.http.async_register_static_paths(
             [
                 StaticPathConfig(
-                    f"/api/{DOMAIN}/www",
+                    URL_BASE,
                     str(www_path),
-                    cache_headers=True,
+                    cache_headers=False,  # Disable caching during development
                 ),
             ]
         )
         _LOGGER.info("Registered frontend panel static path: %s", www_path)
+
+        # Register the panel in the sidebar using panel_custom
+        await panel_custom.async_register_panel(
+            hass,
+            frontend_url_path=DOMAIN,
+            webcomponent_name="med-expert-panel",
+            sidebar_title="Medications",
+            sidebar_icon="mdi:pill",
+            module_url=f"{URL_BASE}/med-expert-panel.js",
+            require_admin=False,
+        )
+        _LOGGER.info("Registered Med Expert panel in sidebar")
 
     return True
 
