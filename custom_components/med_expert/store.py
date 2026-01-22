@@ -24,34 +24,15 @@ _LOGGER = logging.getLogger(__name__)
 CURRENT_SCHEMA_VERSION = 2
 
 
-class ProfileStore:
+class MedExpertStore(Store[dict[str, Any]]):
     """
-    Store for medication profiles.
-
-    Handles async load/save operations and schema migrations.
+    Custom Store subclass that handles migrations for med_expert data.
+    
+    Overrides _async_migrate_func to provide automatic migration when
+    Home Assistant's Store detects a version mismatch.
     """
 
-    def __init__(self, hass: HomeAssistant) -> None:
-        """
-        Initialize the store.
-
-        Args:
-            hass: Home Assistant instance
-
-        """
-        self._hass = hass
-        self._store: Store[dict[str, Any]] = Store(
-            hass,
-            STORE_VERSION,
-            f"{DOMAIN}.{STORE_KEY}",
-            minor_version=1,
-            atomic_writes=True,
-            private=False,
-            async_migrator=self._async_migrator,
-        )
-        self._data: dict[str, Any] | None = None
-
-    async def _async_migrator(
+    async def _async_migrate_func(
         self,
         old_major_version: int,
         old_minor_version: int,
@@ -61,7 +42,6 @@ class ProfileStore:
         Migrate data from an older version to the current version.
 
         Called by Home Assistant's Store when it detects a version mismatch.
-        This handles the actual migration logic.
 
         Args:
             old_major_version: The major version of the stored data.
@@ -76,111 +56,29 @@ class ProfileStore:
             "Migrating storage from v%s.%s to v%s.1",
             old_major_version,
             old_minor_version,
-            STORE_VERSION,
+            self.version,
         )
 
         # Handle downgrade scenario (stored version is higher than expected)
-        if old_major_version > STORE_VERSION:
+        if old_major_version > self.version:
             _LOGGER.warning(
                 "Storage data is from a newer version (v%s.%s) than currently supported (v%s.1). "
                 "This may happen if you downgraded the integration. "
                 "Attempting to load data as-is, but some features may not work correctly.",
                 old_major_version,
                 old_minor_version,
-                STORE_VERSION,
+                self.version,
             )
             # Try to use the data as-is, but update version markers
             old_data["schema_version"] = CURRENT_SCHEMA_VERSION
             return old_data
 
-        # Perform schema migration - _async_migrate handles schema_version internally
-        return await self._async_migrate(old_data)
+        # Perform schema migration based on schema_version in the data
+        return await self._migrate_schema(old_data)
 
-    async def async_load(self) -> dict[str, Profile]:
+    async def _migrate_schema(self, data: dict[str, Any]) -> dict[str, Any]:
         """
-        Load profiles from storage.
-
-        Returns:
-            Dictionary mapping profile_id to Profile objects.
-
-        """
-        data = await self._store.async_load()
-
-        if data is None:
-            # No existing data - initialize empty
-            self._data = {
-                "schema_version": CURRENT_SCHEMA_VERSION,
-                "profiles": {},
-            }
-            return {}
-
-        self._data = data
-
-        # Convert to Profile objects
-        profiles: dict[str, Profile] = {}
-        for profile_id, profile_data in data.get("profiles", {}).items():
-            try:
-                profiles[profile_id] = Profile.from_dict(profile_data)
-            except Exception:
-                _LOGGER.exception(
-                    "Failed to load profile %s",
-                    profile_id,
-                )
-
-        return profiles
-
-    async def async_save(self, profiles: dict[str, Profile]) -> None:
-        """
-        Save profiles to storage.
-
-        Args:
-            profiles: Dictionary mapping profile_id to Profile objects.
-
-        """
-        self._data = {
-            "schema_version": CURRENT_SCHEMA_VERSION,
-            "profiles": {
-                profile_id: profile.to_dict()
-                for profile_id, profile in profiles.items()
-            },
-        }
-        await self._store.async_save(self._data)
-
-    async def async_save_profile(self, profile: Profile) -> None:
-        """
-        Save a single profile.
-
-        Args:
-            profile: The profile to save.
-
-        """
-        if self._data is None:
-            self._data = {
-                "schema_version": CURRENT_SCHEMA_VERSION,
-                "profiles": {},
-            }
-
-        self._data["profiles"][profile.profile_id] = profile.to_dict()
-        await self._store.async_save(self._data)
-
-    async def async_delete_profile(self, profile_id: str) -> None:
-        """
-        Delete a profile from storage.
-
-        Args:
-            profile_id: The ID of the profile to delete.
-
-        """
-        if self._data is None:
-            return
-
-        if profile_id in self._data.get("profiles", {}):
-            del self._data["profiles"][profile_id]
-            await self._store.async_save(self._data)
-
-    async def _async_migrate(self, data: dict[str, Any]) -> dict[str, Any]:
-        """
-        Migrate data to current schema version.
+        Migrate data schema to current version.
 
         Args:
             data: The stored data.
@@ -361,6 +259,113 @@ class ProfileStore:
 
         data["profiles"] = profiles
         return data
+
+
+class ProfileStore:
+    """
+    Store for medication profiles.
+
+    Handles async load/save operations and schema migrations.
+    """
+
+    def __init__(self, hass: HomeAssistant) -> None:
+        """
+        Initialize the store.
+
+        Args:
+            hass: Home Assistant instance
+
+        """
+        self._hass = hass
+        self._store = MedExpertStore(
+            hass,
+            STORE_VERSION,
+            f"{DOMAIN}.{STORE_KEY}",
+            minor_version=1,
+        )
+        self._data: dict[str, Any] | None = None
+
+    async def async_load(self) -> dict[str, Profile]:
+        """
+        Load profiles from storage.
+
+        Returns:
+            Dictionary mapping profile_id to Profile objects.
+
+        """
+        data = await self._store.async_load()
+
+        if data is None:
+            # No existing data - initialize empty
+            self._data = {
+                "schema_version": CURRENT_SCHEMA_VERSION,
+                "profiles": {},
+            }
+            return {}
+
+        self._data = data
+
+        # Convert to Profile objects
+        profiles: dict[str, Profile] = {}
+        for profile_id, profile_data in data.get("profiles", {}).items():
+            try:
+                profiles[profile_id] = Profile.from_dict(profile_data)
+            except Exception:
+                _LOGGER.exception(
+                    "Failed to load profile %s",
+                    profile_id,
+                )
+
+        return profiles
+
+    async def async_save(self, profiles: dict[str, Profile]) -> None:
+        """
+        Save profiles to storage.
+
+        Args:
+            profiles: Dictionary mapping profile_id to Profile objects.
+
+        """
+        self._data = {
+            "schema_version": CURRENT_SCHEMA_VERSION,
+            "profiles": {
+                profile_id: profile.to_dict()
+                for profile_id, profile in profiles.items()
+            },
+        }
+        await self._store.async_save(self._data)
+
+    async def async_save_profile(self, profile: Profile) -> None:
+        """
+        Save a single profile.
+
+        Args:
+            profile: The profile to save.
+
+        """
+        if self._data is None:
+            self._data = {
+                "schema_version": CURRENT_SCHEMA_VERSION,
+                "profiles": {},
+            }
+
+        self._data["profiles"][profile.profile_id] = profile.to_dict()
+        await self._store.async_save(self._data)
+
+    async def async_delete_profile(self, profile_id: str) -> None:
+        """
+        Delete a profile from storage.
+
+        Args:
+            profile_id: The ID of the profile to delete.
+
+        """
+        if self._data is None:
+            return
+
+        if profile_id in self._data.get("profiles", {}):
+            del self._data["profiles"][profile_id]
+            await self._store.async_save(self._data)
 
 
 class ProfileRepository:

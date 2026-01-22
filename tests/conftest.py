@@ -61,6 +61,10 @@ class MockStore:
         """Remove data from store."""
         self._data = None
 
+    def __class_getitem__(cls, item):
+        """Support generic type subscripting (e.g., Store[dict[str, Any]])."""
+        return cls
+
 
 # Only mock homeassistant modules if we don't have the real test fixtures
 # This allows domain/service tests to run without HA, but config_flow tests

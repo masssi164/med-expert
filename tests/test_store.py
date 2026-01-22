@@ -153,12 +153,12 @@ class TestMigrations:
 
     def test_migrate_v0_global_dose_to_schedule(self):
         """Test migration of global dose field to schedule.default_dose."""
-        from custom_components.med_expert.store import ProfileStore
+        from custom_components.med_expert.store import MedExpertStore
 
         # Create a mock hass
         hass = MagicMock()
 
-        store = ProfileStore(hass)
+        store = MedExpertStore(hass, 2, "test_key", minor_version=1)
 
         # Legacy data with global "dose" field
         legacy_data = {
@@ -205,10 +205,10 @@ class TestMigrations:
 
     def test_migrate_v0_numeric_dose(self):
         """Test migration of numeric dose to DoseQuantity format."""
-        from custom_components.med_expert.store import ProfileStore
+        from custom_components.med_expert.store import MedExpertStore
 
         hass = MagicMock()
-        store = ProfileStore(hass)
+        store = MedExpertStore(hass, 2, "test_key", minor_version=1)
 
         # Legacy data with numeric dose
         legacy_data = {
@@ -250,10 +250,10 @@ class TestMigrations:
 
     def test_migrate_v0_logs_without_dose(self):
         """Test migration of logs that don't have dose field."""
-        from custom_components.med_expert.store import ProfileStore
+        from custom_components.med_expert.store import MedExpertStore
 
         hass = MagicMock()
-        store = ProfileStore(hass)
+        store = MedExpertStore(hass, 2, "test_key", minor_version=1)
 
         # Legacy data with logs missing dose
         legacy_data = {
@@ -306,10 +306,10 @@ class TestMigrations:
 
     def test_migrate_v1_to_v2_adds_new_fields(self):
         """Test migration from v1 to v2 adds form, inventory, and notification fields."""
-        from custom_components.med_expert.store import ProfileStore
+        from custom_components.med_expert.store import MedExpertStore
 
         hass = MagicMock()
-        store = ProfileStore(hass)
+        store = MedExpertStore(hass, 2, "test_key", minor_version=1)
 
         # V1 data without new fields
         v1_data = {
@@ -412,11 +412,11 @@ class TestMigrations:
 
     @pytest.mark.asyncio
     async def test_async_migrate_wrapper(self):
-        """Test the _async_migrate function."""
-        from custom_components.med_expert.store import ProfileStore
+        """Test the _migrate_schema function."""
+        from custom_components.med_expert.store import MedExpertStore
 
         hass = MagicMock()
-        store = ProfileStore(hass)
+        store = MedExpertStore(hass, 2, "test_key", minor_version=1)
 
         # Test with v0 data
         legacy_data = {
@@ -450,7 +450,7 @@ class TestMigrations:
         }
 
         # Call the async migration function directly
-        migrated = await store._async_migrate(legacy_data)
+        migrated = await store._migrate_schema(legacy_data)
 
         # Verify migration was applied
         med = migrated["profiles"]["profile-1"]["medications"]["med-1"]
@@ -462,11 +462,11 @@ class TestMigrations:
 
     @pytest.mark.asyncio
     async def test_async_migrate_v0_to_v2(self):
-        """Test the _async_migrate function with v0 data."""
-        from custom_components.med_expert.store import ProfileStore
+        """Test the _migrate_schema function with v0 data."""
+        from custom_components.med_expert.store import MedExpertStore
 
         hass = MagicMock()
-        store = ProfileStore(hass)
+        store = MedExpertStore(hass, 2, "test_key", minor_version=1)
 
         # Test with v0 data
         legacy_data = {
@@ -500,7 +500,7 @@ class TestMigrations:
         }
 
         # Call the async migrate function directly
-        migrated = await store._async_migrate(legacy_data)
+        migrated = await store._migrate_schema(legacy_data)
 
         # Verify migration was applied correctly
         med = migrated["profiles"]["profile-1"]["medications"]["med-1"]
@@ -512,11 +512,11 @@ class TestMigrations:
 
     @pytest.mark.asyncio
     async def test_async_migrate_v1_to_v2(self):
-        """Test the _async_migrate function for v1 to v2 migration."""
-        from custom_components.med_expert.store import ProfileStore
+        """Test the _migrate_schema function for v1 to v2 migration."""
+        from custom_components.med_expert.store import MedExpertStore
 
         hass = MagicMock()
-        store = ProfileStore(hass)
+        store = MedExpertStore(hass, 2, "test_key", minor_version=1)
 
         # Test with v1 data
         v1_data = {
@@ -554,7 +554,7 @@ class TestMigrations:
         }
 
         # Call the async migrate function directly
-        migrated = await store._async_migrate(v1_data)
+        migrated = await store._migrate_schema(v1_data)
 
         # Verify v2 fields were added
         profile = migrated["profiles"]["profile-1"]
