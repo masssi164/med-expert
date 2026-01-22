@@ -167,8 +167,10 @@ class ProfileStore:
         # Apply migrations in order
         if schema_version < 1:
             data = self._migrate_v0_to_v1(data)
+            schema_version = 1
         if schema_version < 2:
             data = self._migrate_v1_to_v2(data)
+            schema_version = 2
 
         data["schema_version"] = CURRENT_SCHEMA_VERSION
         return data
